@@ -44,8 +44,8 @@ contract ShipEscrowTest is Test {
     function setUp() public {
         vm.warp(1_800_000_000);
         attester = vm.addr(attesterKey);
-        escrow = new ShipEscrow(attester);
         wif = new MockToken();
+        escrow = new ShipEscrow(attester, address(wif), address(0));
         wif.mint(alice, 1_000_000 ether);
         wif.mint(carol, 1_000_000 ether);
         vm.prank(alice);
@@ -65,6 +65,7 @@ contract ShipEscrowTest is Test {
         ShipEscrow.Bounty memory b = escrow.bounty(id);
         a = ShipEscrow.Ships({
             project: keccak256(bytes(SLUG)),
+            builder: b.builder,
             since: b.start,
             until: uint64(block.timestamp),
             ships: ships,
@@ -101,6 +102,10 @@ contract ShipEscrowTest is Test {
         escrow.create(address(wif), address(0), SLUG, 1, dl, 0, 0);
         vm.expectRevert(ShipEscrow.NotAToken.selector);
         escrow.create(address(0x1234), builder, SLUG, 1, dl, 0, 0);
+        vm.expectRevert(ShipEscrow.BadBuilder.selector);
+        escrow.create(address(wif), address(escrow), SLUG, 1, dl, 0, 0);
+        vm.expectRevert(ShipEscrow.BadBuilder.selector);
+        escrow.create(address(wif), 0x000000000000000000000000000000000000dEaD, SLUG, 1, dl, 0, 0);
         vm.expectRevert(ShipEscrow.BadSlug.selector);
         escrow.create(address(wif), builder, "", 1, dl, 0, 0);
         vm.expectRevert(ShipEscrow.BadMinShips.selector);
@@ -252,7 +257,7 @@ contract ShipEscrowTest is Test {
     }
 
     function test_attestationForOneEscrowDoesNotWorkOnAnother() public {
-        ShipEscrow other = new ShipEscrow(attester);
+        ShipEscrow other = new ShipEscrow(attester, address(wif), address(0));
         vm.prank(alice);
         wif.approve(address(other), type(uint256).max);
         uint256 id = _open(10 ether, 1, 0);
@@ -328,6 +333,7 @@ contract ShipEscrowTest is Test {
 
     function test_feeOnTransferCreditsWhatArrived() public {
         FeeToken fee = new FeeToken();
+        escrow = new ShipEscrow(attester, address(fee), address(0));
         fee.mint(alice, 1_000 ether);
         vm.startPrank(alice);
         fee.approve(address(escrow), type(uint256).max);

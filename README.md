@@ -50,12 +50,13 @@ reason to back the next builder.
 The attestation is EIP-712 (`"HEY Proof of Ship"`, version `1`, chain 4663, this contract):
 
 ```
-Ships(bytes32 project, uint64 since, uint64 until, uint32 ships, bytes32 evidence, uint64 issuedAt)
+Ships(bytes32 project, address builder, uint64 since, uint64 until, uint32 ships, bytes32 evidence, uint64 issuedAt)
 ```
 
+`builder` must equal the bounty's payout address — HEY signs only for an address the project verified to HEY —
 `since` must equal the bounty's start, `until` can't pass its deadline, `issuedAt` must be within the last day, and
 `evidence` is the hash of the exact ship ids (`ship:<uuid>`) the count rests on, each of which opens on HEY with its
-source. HEY signs at `GET https://heyresearch.xyz/api/v1/proof-of-ship/attestation?slug=&since=&until=&escrow=`.
+source. HEY signs at `GET https://heyresearch.xyz/api/v1/proof-of-ship/attestation?slug=&builder=&since=&until=&escrow=`.
 
 ## What HEY's signature means, and doesn't
 

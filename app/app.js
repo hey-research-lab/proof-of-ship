@@ -162,11 +162,14 @@ async function act(kind, id) {
     u.searchParams.set('since', String(b.start));
     u.searchParams.set('until', String(Math.min(now(), Number(b.deadline))));
     u.searchParams.set('escrow', CONFIG.escrow);
+    // HEY signs only for a payout address the project verified to HEY; the escrow checks it equals the bounty's builder.
+    u.searchParams.set('builder', b.builder);
     const r = await fetch(u);
     const j = await r.json();
     if (!r.ok) throw new Error(j.message ?? `HEY answered ${r.status}`);
     const a = j.attestation;
-    const att = { project: a.project, since: BigInt(a.since), until: BigInt(a.until), ships: Number(a.ships), evidence: a.evidence, issuedAt: BigInt(a.issuedAt) };
+    const att = { project: a.project, builder: getAddress(a.builder), since: BigInt(a.since), until: BigInt(a.until), ships: Number(a.ships), evidence: a.evidence, issuedAt: BigInt(a.issuedAt) };
+    if (att.builder !== getAddress(b.builder)) throw new Error('HEY does not attest this payout address for the project.');
     if (att.ships < Number(b.minShips)) throw new Error(`HEY counts ${att.ships} ships; the bounty needs ${b.minShips}.`);
     await send({ address: CONFIG.escrow, abi: ABI, functionName: 'claim', args: [BigInt(id), att, j.signature] }, 'Release');
   } else if (kind === 'refund') {

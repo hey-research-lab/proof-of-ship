@@ -17,7 +17,7 @@ contract ShipEscrowForkTest is Test {
         vm.createSelectFork(rpc);
         assertEq(block.chainid, 4663);
 
-        ShipEscrow escrow = new ShipEscrow(vm.addr(attesterKey));
+        ShipEscrow escrow = new ShipEscrow(vm.addr(attesterKey), WIF, address(0));
         address funder = makeAddr("funder");
         address builder = makeAddr("builder");
         deal(WIF, funder, 1_000_000 ether);
@@ -30,6 +30,7 @@ contract ShipEscrowForkTest is Test {
         vm.warp(block.timestamp + 2 days);
         ShipEscrow.Ships memory a = ShipEscrow.Ships({
             project: keccak256("my-wif-tool"),
+            builder: builder,
             since: escrow.bounty(id).start,
             until: uint64(block.timestamp),
             ships: 2,

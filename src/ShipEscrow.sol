@@ -6,19 +6,23 @@ import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/Safe
 import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 /// @title Proof of Ship escrow
 /// @notice Anyone puts tokens behind a builder; the tokens reach the builder only when Hey Research Lab attests that
 ///         the builder's project shipped — counted building evidence, each ship with its public source — after the
 ///         bounty opened. If the builder does not ship before the deadline, every funder takes back what they put in.
-/// @dev    There is no owner and no admin function. The attester is fixed at deployment; it can only release a
-///         bounty to the payout address its creator named, never redirect funds. Token-agnostic: any ERC-20 works,
-///         fee-on-transfer tokens are credited with what actually arrived.
+/// @dev    There is no owner. The attester is fixed at deployment; it signs the payout address
+///         with the count, so a bounty pays only an address HEY attests for the project. An optional guardian can
+///         only retire the escrow (claims stop, refunds open). One token, fixed at
+///         deployment.
 contract ShipEscrow is EIP712, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    /// @notice What Hey Research Lab signs: `ships` counted ships for `project` between `since` and `until`.
+    /// @notice What Hey Research Lab signs: `ships` counted ships for `project` between `since` and `until`, and that
+    ///         `builder` is a payout address the project itself verified to HEY.
     /// @param project   keccak256 of the project's HEY slug (heyresearch.xyz/project/<slug>)
+    /// @param builder   the payout address HEY attests belongs to the project; must equal the bounty's builder
     /// @param since     window start (unix seconds), equal to the bounty's `start`
     /// @param until     window end (unix seconds); ships after the bounty's deadline never count
     /// @param ships     number of ships HEY counted as building in the window
@@ -26,6 +30,7 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
     /// @param issuedAt  when HEY signed it
     struct Ships {
         bytes32 project;
+        address builder;
         uint64 since;
         uint64 until;
         uint32 ships;
@@ -46,7 +51,7 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
     }
 
     bytes32 public constant SHIPS_TYPEHASH = keccak256(
-        "Ships(bytes32 project,uint64 since,uint64 until,uint32 ships,bytes32 evidence,uint64 issuedAt)"
+        "Ships(bytes32 project,address builder,uint64 since,uint64 until,uint32 ships,bytes32 evidence,uint64 issuedAt)"
     );
     /// @notice An attestation older than this cannot be used.
     uint256 public constant MAX_ATTESTATION_AGE = 1 days;
@@ -61,6 +66,13 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
 
     /// @notice The only key whose signature releases a bounty. Immutable.
     address public immutable attester;
+    /// @notice The only token bounties are held in. Immutable.
+    address public immutable token;
+    /// @notice A cold key that can do one thing, once: retire the escrow if the attester key is lost or leaks. After
+    ///         that no bounty can be opened, funded or claimed, and every funder can take their contribution back at
+    ///         once. It can never move tokens anywhere but back to their funders. address(0) disables it.
+    address public immutable guardian;
+    bool public retired;
 
     Bounty[] private _bounties;
     mapping(uint256 id => mapping(address funder => uint256 amount)) public contributed;
@@ -81,6 +93,7 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
     event Funded(uint256 indexed id, address indexed funder, uint256 amount, uint256 total);
     event Claimed(uint256 indexed id, address indexed builder, uint256 paid, uint256 burned, uint32 ships, bytes32 evidence);
     event Refunded(uint256 indexed id, address indexed funder, uint256 amount);
+    event EscrowRetired();
 
     error ZeroAddress();
     error NotAToken();
@@ -94,6 +107,8 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
     error NothingReceived();
     error ClaimClosed();
     error WrongProject();
+    error WrongBuilder();
+    error BadBuilder();
     error WrongWindow();
     error StaleAttestation();
     error NotEnoughShips();
@@ -101,10 +116,23 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
     error NothingFunded();
     error RefundNotOpen();
     error NothingToRefund();
+    error NotGuardian();
+    error Retired();
 
-    constructor(address attester_) EIP712("HEY Proof of Ship", "1") {
-        if (attester_ == address(0)) revert ZeroAddress();
+    constructor(address attester_, address token_, address guardian_) EIP712("HEY Proof of Ship", "1") {
+        if (attester_ == address(0) || token_ == address(0)) revert ZeroAddress();
+        if (token_.code.length == 0) revert NotAToken();
         attester = attester_;
+        token = token_;
+        guardian = guardian_;
+    }
+
+    /// @notice Stop all claims for good and open refunds now. Guardian only; irreversible.
+    function retire() external {
+        if (msg.sender != guardian || guardian == address(0)) revert NotGuardian();
+        if (retired) revert Retired();
+        retired = true;
+        emit EscrowRetired();
     }
 
     // ------------------------------------------------------------------ bounties
@@ -112,7 +140,7 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
     /// @notice Open a bounty: `builder` is paid once HEY counts `minShips` ships for `slug` from now until `deadline`.
     /// @param amount optional first funding, pulled from the caller (approve first); 0 opens it unfunded.
     function create(
-        address token,
+        address token_,
         address builder,
         string calldata slug,
         uint32 minShips,
@@ -120,8 +148,10 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
         uint16 burnBps,
         uint256 amount
     ) external nonReentrant returns (uint256 id) {
-        if (token == address(0) || builder == address(0)) revert ZeroAddress();
-        if (token.code.length == 0) revert NotAToken();
+        if (retired) revert Retired();
+        if (builder == address(0)) revert ZeroAddress();
+        if (token_ != token) revert NotAToken();
+        if (builder == address(this) || builder == token || builder == BURN_ADDRESS) revert BadBuilder();
         uint256 len = bytes(slug).length;
         if (len == 0 || len > 128) revert BadSlug();
         if (minShips == 0) revert BadMinShips();
@@ -132,7 +162,7 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
         bytes32 project = keccak256(bytes(slug));
         _bounties.push(
             Bounty({
-                token: token,
+                token: token_,
                 builder: builder,
                 project: project,
                 start: uint64(block.timestamp),
@@ -144,7 +174,7 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
             })
         );
         slugOf[id] = slug;
-        emit BountyCreated(id, token, builder, project, slug, minShips, uint64(block.timestamp), deadline, burnBps);
+        emit BountyCreated(id, token_, builder, project, slug, minShips, uint64(block.timestamp), deadline, burnBps);
         if (amount != 0) _fund(id, amount);
     }
 
@@ -157,11 +187,13 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
     /// @notice Release a bounty with a HEY attestation. Anyone may submit it; the tokens always go to the bounty's
     ///         builder (minus the bounty's burn share, sent to the dead address).
     function claim(uint256 id, Ships calldata att, bytes calldata signature) external nonReentrant {
+        if (retired) revert Retired();
         Bounty storage b = _bounty(id);
         if (b.paid) revert AlreadyPaid();
         if (block.timestamp > uint256(b.deadline) + CLAIM_GRACE) revert ClaimClosed();
         if (b.total == 0) revert NothingFunded();
         if (att.project != b.project) revert WrongProject();
+        if (att.builder != b.builder) revert WrongBuilder();
         if (att.since != b.start || att.until < att.since || att.until > b.deadline || att.until > att.issuedAt) {
             revert WrongWindow();
         }
@@ -173,11 +205,11 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
 
         b.paid = true;
         uint256 total = b.total;
-        uint256 burned = (total * b.burnBps) / 10_000;
+        uint256 burned = Math.mulDiv(total, b.burnBps, 10_000);
         uint256 paid = total - burned;
-        IERC20 token = IERC20(b.token);
-        if (burned != 0) token.safeTransfer(BURN_ADDRESS, burned);
-        token.safeTransfer(b.builder, paid);
+        IERC20 t = IERC20(b.token);
+        if (burned != 0) t.safeTransfer(BURN_ADDRESS, burned);
+        t.safeTransfer(b.builder, paid);
         emit Claimed(id, b.builder, paid, burned, att.ships, att.evidence);
     }
 
@@ -185,7 +217,7 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
     function refund(uint256 id) external nonReentrant {
         Bounty storage b = _bounty(id);
         if (b.paid) revert AlreadyPaid();
-        if (block.timestamp <= uint256(b.deadline) + CLAIM_GRACE) revert RefundNotOpen();
+        if (!retired && block.timestamp <= uint256(b.deadline) + CLAIM_GRACE) revert RefundNotOpen();
         uint256 amount = contributed[id][msg.sender];
         if (amount == 0) revert NothingToRefund();
         contributed[id][msg.sender] = 0;
@@ -217,13 +249,14 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
     // ------------------------------------------------------------------ internal
 
     function _fund(uint256 id, uint256 amount) internal {
+        if (retired) revert Retired();
         Bounty storage b = _bounty(id);
         if (b.paid) revert AlreadyPaid();
         if (block.timestamp >= b.deadline) revert FundingClosed();
-        IERC20 token = IERC20(b.token);
-        uint256 before = token.balanceOf(address(this));
-        token.safeTransferFrom(msg.sender, address(this), amount);
-        uint256 received = token.balanceOf(address(this)) - before;
+        IERC20 t = IERC20(b.token);
+        uint256 before = t.balanceOf(address(this));
+        t.safeTransferFrom(msg.sender, address(this), amount);
+        uint256 received = t.balanceOf(address(this)) - before;
         if (received == 0) revert NothingReceived();
         contributed[id][msg.sender] += received;
         b.total += received;
@@ -237,7 +270,7 @@ contract ShipEscrow is EIP712, ReentrancyGuard {
 
     function _structHash(Ships calldata att) internal pure returns (bytes32) {
         return keccak256(
-            abi.encode(SHIPS_TYPEHASH, att.project, att.since, att.until, att.ships, att.evidence, att.issuedAt)
+            abi.encode(SHIPS_TYPEHASH, att.project, att.builder, att.since, att.until, att.ships, att.evidence, att.issuedAt)
         );
     }
 }

@@ -6,6 +6,11 @@
         "name": "attester_",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "token_",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -213,6 +218,11 @@
             "internalType": "bytes32"
           },
           {
+            "name": "builder",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
             "name": "since",
             "type": "uint64",
             "internalType": "uint64"
@@ -277,7 +287,7 @@
     "name": "create",
     "inputs": [
       {
-        "name": "token",
+        "name": "token_",
         "type": "address",
         "internalType": "address"
       },
@@ -334,6 +344,11 @@
             "name": "project",
             "type": "bytes32",
             "internalType": "bytes32"
+          },
+          {
+            "name": "builder",
+            "type": "address",
+            "internalType": "address"
           },
           {
             "name": "since",
@@ -474,6 +489,19 @@
         "name": "slug",
         "type": "string",
         "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "token",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -651,6 +679,11 @@
   },
   {
     "type": "error",
+    "name": "BadBuilder",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "BadDeadline",
     "inputs": []
   },
@@ -781,6 +814,11 @@
   {
     "type": "error",
     "name": "UnknownBounty",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrongBuilder",
     "inputs": []
   },
   {
