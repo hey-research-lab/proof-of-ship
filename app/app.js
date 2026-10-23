@@ -1,7 +1,7 @@
 import {
   createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits, getAddress, isAddress,
 } from 'https://esm.sh/viem@2.21.55';
-import { CONFIG } from './config.js?v=3';
+import { CONFIG } from './config.js?v=4';
 
 const chain = {
   id: CONFIG.chainId, name: CONFIG.chainName,
@@ -10,7 +10,7 @@ const chain = {
   blockExplorers: { default: { name: 'Blockscout', url: CONFIG.explorer } },
 };
 const pub = createPublicClient({ chain, transport: http(CONFIG.rpc) });
-const ABI = await (await fetch('./ShipEscrow.abi.json?v=3')).json();
+const ABI = await (await fetch('./ShipEscrow.abi.json?v=4')).json();
 const ERC20 = [
   { type: 'function', name: 'allowance', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }] },
@@ -234,8 +234,9 @@ form.addEventListener('submit', async (e) => {
   try {
     if (!CONFIG.escrow) throw new Error('The escrow is not deployed yet.');
     const v = readForm();
-    if (!v.slug) throw new Error('Enter the project’s slug on HEY.');
-    if (!isAddress(v.builder)) throw new Error('The payout address is not a valid address.');
+    const bad = (id, hintId, msg) => { const h = $(hintId); h.className = 'hint bad'; h.textContent = msg; $(id).focus(); $(id).scrollIntoView({ behavior: 'smooth', block: 'center' }); return new Error(msg); };
+    if (!v.slug) throw bad('#slug', '#slugHint', 'Type the project’s slug, e.g. predict-fwa.');
+    if (!isAddress(v.builder)) throw bad('#builder', '#builderHint', 'Paste the builder’s payout address (0x…).');
     if (v.minShips < 1) throw new Error('A bounty needs at least one ship.');
     if (v.days < 1 || v.days > 365) throw new Error('Time to ship is 1 to 365 days.');
     const project = await heyProject(v.slug);
