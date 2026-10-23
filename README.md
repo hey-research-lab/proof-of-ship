@@ -8,7 +8,7 @@ changed — each with its public source. No ships by the deadline, and every bac
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![Robinhood Chain 4663](https://img.shields.io/badge/Robinhood%20Chain-4663-informational.svg)](#deployment)
 
-Built for the [World is Flat hackathon](https://worldisflat.fun/build).
+Built for the [World is Flat hackathon](https://worldisflat.fun/build). **Demo video:** [hey-research-lab.github.io/proof-of-ship/demo.html](https://hey-research-lab.github.io/proof-of-ship/demo.html)
 
 ## Why
 
