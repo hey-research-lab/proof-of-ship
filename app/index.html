@@ -4,107 +4,304 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Proof of Ship</title>
-<meta name="description" content="Put $WIF behind a Robinhood Chain builder. It reaches them only when Hey Research Lab counts real ships, each with its source.">
+<meta name="description" content="Back a Robinhood Chain builder with $WIF. It pays out only when Hey Research Lab counts real ships, each with its source.">
+<meta property="og:title" content="Proof of Ship">
+<meta property="og:description" content="Back a Robinhood Chain builder with $WIF. It pays out only when they ship.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0d12'/%3E%3Cpath d='M9 17l5 5 9-12' stroke='%234cc38a' stroke-width='3.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap">
 <style>
-:root{--paper:#f3f0e8;--surface:#fbfaf6;--ink:#0a0d12;--sec:#4a5260;--mut:#626b7a;--line:rgba(10,13,18,.12);--line2:rgba(10,13,18,.22);
-  --green:#127a50;--greenBg:#dff3e9;--amber:#8a5a00;--amberBg:#fbefd5;--red:#a3271f;--redBg:#fbe4e1;
-  --sans:'Geist',ui-sans-serif,system-ui,sans-serif;--mono:'Geist Mono',ui-monospace,Menlo,monospace;}
-@media (prefers-color-scheme:dark){:root{--paper:#0c1016;--surface:#121821;--ink:#eef1f6;--sec:#b3bccb;--mut:#8c96a6;--line:rgba(238,241,246,.12);--line2:rgba(238,241,246,.24);
-  --green:#4cc38a;--greenBg:#123426;--amber:#f0b44c;--amberBg:#3a2a0c;--red:#f08a80;--redBg:#3a1714;}}
+:root{
+  --bg:#f4f2ec;--bg2:#ece9e1;--surface:#fbfaf7;--raise:#ffffff;--ink:#0b0e13;--sec:#454d5a;--mut:#6a7280;
+  --line:rgba(11,14,19,.09);--line2:rgba(11,14,19,.16);--field:#ffffff;
+  --acc:#0f7a4c;--accSoft:rgba(15,122,76,.10);--accInk:#ffffff;
+  --amber:#8a5a00;--amberSoft:rgba(176,116,0,.12);--red:#a3271f;--redSoft:rgba(163,39,31,.10);
+  --shadow:0 1px 0 rgba(255,255,255,.7) inset,0 1px 2px rgba(11,14,19,.04),0 8px 24px -12px rgba(11,14,19,.12);
+  --sans:'Geist',ui-sans-serif,system-ui,-apple-system,sans-serif;--mono:'Geist Mono',ui-monospace,Menlo,monospace;
+  --r:16px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#090c11;--bg2:#0e131a;--surface:#111720;--raise:#151c26;--ink:#eef1f6;--sec:#b4bdcb;--mut:#8b95a5;
+  --line:rgba(238,241,246,.08);--line2:rgba(238,241,246,.16);--field:#0c1118;
+  --acc:#4cc38a;--accSoft:rgba(76,195,138,.12);--accInk:#06120c;
+  --amber:#f0b44c;--amberSoft:rgba(240,180,76,.12);--red:#f08a80;--redSoft:rgba(240,138,128,.12);
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 10px 30px -14px rgba(0,0,0,.6);
+}}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
-a{color:inherit}
-.wrap{max-width:960px;margin:0 auto;padding:0 20px}
-header{display:flex;justify-content:space-between;align-items:center;padding:22px 0;gap:12px;flex-wrap:wrap}
-.brand{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase}
-.brand b{font-weight:500}
-button,.btn{font:inherit;font-weight:600;font-size:15px;border:1px solid var(--line2);background:var(--surface);color:var(--ink);padding:10px 16px;border-radius:10px;cursor:pointer}
-button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-button:disabled{opacity:.5;cursor:default}
-button:focus-visible,input:focus-visible{outline:2px solid var(--green);outline-offset:2px}
-.hero{padding:40px 0 28px}
-.hero h1{font-size:clamp(36px,6vw,60px);line-height:1.04;letter-spacing:-.035em;margin:0;font-weight:650;text-wrap:balance}
-.hero h1 em{font-style:normal;color:var(--green)}
-.hero p{max-width:62ch;font-size:18px;line-height:1.55;color:var(--sec);margin:18px 0 0}
-.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:26px 0 8px}
-.step{border:1px solid var(--line);border-radius:14px;padding:16px;background:var(--surface)}
-.step .n{font-family:var(--mono);font-size:12px;letter-spacing:.12em;color:var(--green);text-transform:uppercase}
-.step p{margin:8px 0 0;font-size:15px;line-height:1.45;color:var(--sec)}
-h2{font-size:22px;letter-spacing:-.02em;margin:40px 0 14px}
-.panel{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:18px}
-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
-label{display:grid;gap:6px;font-size:13px;color:var(--sec)}
-input{font:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--line2);border-radius:9px;background:var(--paper);color:var(--ink);min-width:0}
-.hint{font-size:13px;color:var(--mut);line-height:1.4}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(900px 460px at 85% -10%,var(--accSoft),transparent 70%),radial-gradient(700px 380px at -10% 0%,var(--accSoft),transparent 70%)}
+a{color:inherit;text-underline-offset:3px}
+.wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:0 20px}
+.mono{font-family:var(--mono)}
+.muted{color:var(--mut)}
+
+/* header */
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:20px 0}
+.brand{display:flex;align-items:center;gap:10px;font-weight:650;letter-spacing:-.01em;text-decoration:none}
+.brand svg{width:28px;height:28px;flex:none}
+.brand small{font-family:var(--mono);font-weight:400;font-size:12px;color:var(--mut);letter-spacing:.04em}
+.who{display:flex;align-items:center;gap:10px}
+.pill{font-family:var(--mono);font-size:12px;color:var(--sec);border:1px solid var(--line2);border-radius:999px;padding:6px 10px;background:var(--surface)}
+.pill:empty{display:none}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acc);margin-right:6px;vertical-align:1px}
+
+/* buttons */
+button{font:inherit;font-weight:600;font-size:15px;line-height:1;border-radius:11px;padding:12px 16px;cursor:pointer;border:1px solid var(--line2);background:var(--surface);color:var(--ink);transition:transform .12s ease,background .12s ease,border-color .12s ease}
+button:hover{border-color:var(--ink)}
+button:active{transform:translateY(1px)}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button.go{background:var(--acc);color:var(--accInk);border-color:var(--acc)}
+button.go:hover{filter:brightness(1.06)}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.25fr .9fr;gap:40px;align-items:end;padding:44px 0 34px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);background:var(--accSoft);border-radius:999px;padding:5px 11px}
+h1{font-size:clamp(38px,6.2vw,66px);line-height:1.02;letter-spacing:-.04em;font-weight:650;margin:18px 0 0;text-wrap:balance}
+h1 em{font-style:normal;color:var(--acc)}
+.lede{font-size:18px;line-height:1.6;color:var(--sec);margin:18px 0 0;max-width:56ch}
+.stats{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+.stat{padding:18px 18px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.stat:nth-child(2n){border-right:0}
+.stat:nth-child(n+3){border-bottom:0}
+.stat .k{font-size:12px;color:var(--mut);letter-spacing:.02em}
+.stat .v{font-size:26px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .v small{font-size:13px;font-weight:500;color:var(--mut);margin-left:4px}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:8px 0 0}
+.step{position:relative;border:1px solid var(--line);border-radius:var(--r);padding:18px;background:var(--surface)}
+.step .n{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-family:var(--mono);font-size:13px;background:var(--accSoft);color:var(--acc);font-weight:500}
+.step h3{margin:12px 0 4px;font-size:16px;letter-spacing:-.01em}
+.step p{margin:0;font-size:14.5px;line-height:1.5;color:var(--sec)}
+
+/* sections */
+section{margin-top:56px}
+.sh{display:flex;justify-content:space-between;align-items:baseline;gap:4px 12px;margin-bottom:14px;flex-wrap:wrap}
+h2{font-size:24px;letter-spacing:-.025em;margin:0;font-weight:650}
+.sh p{margin:0;font-size:14px;color:var(--mut)}
+
+/* form */
+.composer{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+.card{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow)}
+form.card{padding:22px}
+.group+.group{margin-top:22px;padding-top:22px;border-top:1px solid var(--line)}
+.legend{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+.f{display:flex;flex-direction:column;gap:7px;min-width:0}
+.f label{font-size:14px;font-weight:550;color:var(--ink)}
+.input{position:relative;display:flex;align-items:center}
+.input input{width:100%;height:46px;font:inherit;font-size:15.5px;padding:0 14px;border:1px solid var(--line2);border-radius:11px;background:var(--field);color:var(--ink);font-variant-numeric:tabular-nums;transition:border-color .12s ease,box-shadow .12s ease}
+.input input::placeholder{color:var(--mut);opacity:.75}
+.input input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 4px var(--accSoft)}
+.input input.addr{font-family:var(--mono);font-size:14px}
+.input .unit{position:absolute;right:12px;font-family:var(--mono);font-size:12.5px;color:var(--mut);pointer-events:none}
+.input input.has-unit{padding-right:58px}
+.hint{font-size:13px;line-height:1.45;color:var(--mut);min-height:19px}
+.hint:empty{display:none}
+.hint.ok{color:var(--acc)}.hint.bad{color:var(--red)}
+.project{display:none;align-items:center;gap:10px;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:var(--bg2)}
+.project.on{display:flex}
+.project img,.project .ph{width:30px;height:30px;border-radius:8px;flex:none;object-fit:cover;background:var(--line)}
+.project b{font-size:14.5px;display:block;line-height:1.2}
+.project span{font-size:12.5px;color:var(--mut)}
+
+/* preview */
+.preview{position:sticky;top:16px;padding:20px}
+.preview .t{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.preview .amt{font-size:34px;font-weight:650;letter-spacing:-.03em;margin:10px 0 2px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.preview .amt small{font-size:15px;color:var(--mut);font-weight:500;margin-left:4px}
+.preview dl{margin:16px 0 18px;display:grid;gap:10px}
+.preview dl div{display:flex;justify-content:space-between;gap:12px;font-size:14px}
+.preview dt{color:var(--mut)}
+.preview dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;font-weight:550}
+.preview .sentence{font-size:14px;line-height:1.55;color:var(--sec);border-top:1px solid var(--line);padding-top:14px;margin:0 0 16px}
+.preview button{width:100%;height:48px}
+.preview .fine{font-size:12.5px;color:var(--mut);margin:10px 0 0;text-align:center}
+
+/* bounties */
 .list{display:grid;gap:12px}
-.card{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:16px;display:grid;gap:10px}
-.card .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline}
-.card .name{font-size:19px;font-weight:650;letter-spacing:-.01em}
-.mono{font-family:var(--mono);font-size:13px;color:var(--mut)}
-.chip{font-family:var(--mono);font-size:12px;padding:3px 8px;border-radius:999px;border:1px solid var(--line)}
-.chip.ok{color:var(--green);background:var(--greenBg);border-color:transparent}
-.chip.wait{color:var(--amber);background:var(--amberBg);border-color:transparent}
-.chip.off{color:var(--red);background:var(--redBg);border-color:transparent}
-.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.bounty{padding:20px;display:grid;gap:16px}
+.bounty .top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.bounty .id{display:flex;gap:12px;align-items:center;min-width:0}
+.bounty .id img,.bounty .id .ph{width:40px;height:40px;border-radius:11px;object-fit:cover;background:var(--line);flex:none}
+.bounty .name{font-size:18px;font-weight:650;letter-spacing:-.015em;display:block}
+.bounty .slug{font-family:var(--mono);font-size:12.5px;color:var(--mut);text-decoration:none}
+.bounty .slug:hover{color:var(--ink);text-decoration:underline}
+.chip{font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:999px;white-space:nowrap}
+.chip.ok{color:var(--acc);background:var(--accSoft)}
+.chip.wait{color:var(--amber);background:var(--amberSoft)}
+.chip.off{color:var(--red);background:var(--redSoft)}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.fact{background:var(--surface);padding:12px 14px}
 .fact .k{font-size:12px;color:var(--mut)}
-.fact .v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.fact .v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.progress{display:grid;gap:8px}
+.progress .lbl{display:flex;justify-content:space-between;font-size:13.5px;color:var(--sec)}
 .bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
-.bar i{display:block;height:100%;background:var(--green)}
-.ships{margin:0;padding-left:18px;font-size:14px;line-height:1.5;color:var(--sec)}
-.ships a{color:var(--ink)}
-#status{position:sticky;bottom:12px;margin:18px auto 0;max-width:960px;font-size:14px}
-#status:empty{display:none}
-#status div{background:var(--ink);color:var(--paper);border-radius:10px;padding:10px 14px;margin:0 20px}
-footer{padding:44px 0 60px;font-size:13px;color:var(--mut);line-height:1.6}
-.empty{color:var(--mut);font-size:15px}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--acc);transition:width .4s ease}
+.ships{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.ships li{display:flex;gap:10px;align-items:baseline;font-size:14px;color:var(--sec)}
+.ships li::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--acc);transform:translateY(-2px)}
+.ships a{color:var(--mut);font-size:13px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.actions .mono{font-size:12.5px;color:var(--mut);margin-left:auto}
+.empty{border:1px dashed var(--line2);border-radius:var(--r);padding:28px;text-align:center;color:var(--mut);font-size:15px}
+.skel{height:180px;border-radius:var(--r);background:linear-gradient(90deg,var(--surface),var(--bg2),var(--surface));background-size:200% 100%;animation:sk 1.4s ease infinite;border:1px solid var(--line)}
+@keyframes sk{to{background-position:-200% 0}}
+
+/* trust */
+.trust{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.trust .card{padding:18px}
+.trust h3{margin:0 0 6px;font-size:15.5px;letter-spacing:-.01em}
+.trust p{margin:0;font-size:14px;color:var(--sec);line-height:1.5}
+.contract{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.contract div{background:var(--surface);padding:12px 14px;min-width:0}
+.contract .k{font-size:12px;color:var(--mut)}
+.contract a{font-family:var(--mono);font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+
+footer{margin:56px 0 0;padding:24px 0 48px;border-top:1px solid var(--line);font-size:13px;color:var(--mut);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:10;max-width:min(560px,calc(100% - 32px));background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;font-size:14px;box-shadow:0 12px 40px -10px rgba(0,0,0,.4)}
+#toast:empty{display:none}
+#toast a{color:inherit}
+
+@media (max-width:880px){
+  .hero,.composer{grid-template-columns:1fr}
+  .hero{padding-top:24px;gap:24px}
+  .preview{position:static}
+  .steps,.trust,.contract{grid-template-columns:1fr}
+  .facts{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:520px){
+  .grid2{grid-template-columns:1fr}
+  h2{font-size:22px}
+  .hint{min-height:0}
+  .brand small{display:none}
+  .stat .v{font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="brand"><b>Proof of Ship</b> · Hey Research Lab × $WIF</div>
-    <div class="row"><span id="who" class="mono"></span><button id="connect" class="primary">Connect wallet</button></div>
+    <a class="brand" href="./">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M9 17l5 5 9-12" stroke="var(--acc)" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Proof of Ship <small>by Hey Research Lab</small>
+    </a>
+    <div class="who"><span id="who" class="pill"></span><button id="connect" class="primary">Connect wallet</button></div>
   </header>
 
-  <section class="hero">
-    <h1>Back a builder with <em>$WIF</em>. Pay only when they ship.</h1>
-    <p>Put $WIF behind a team building on Robinhood Chain. It stays in the escrow until Hey Research Lab counts real ships for that team — releases, deployed contracts, code that changed — each with its public source. No ships by the deadline, and every backer takes their $WIF back.</p>
-    <div class="steps">
-      <div class="step"><div class="n">1 · Back</div><p>Anyone opens a bounty for a project on HEY and funds it with $WIF. Others can add to it.</p></div>
-      <div class="step"><div class="n">2 · Ship</div><p>The builder ships. HEY reads it from its sources and counts it by the same rule as every page on HEY.</p></div>
-      <div class="step"><div class="n">3 · Release</div><p>When the count reaches the target, HEY signs it and the $WIF goes to the builder. A share the backer chose is burned.</p></div>
+  <div class="hero">
+    <div>
+      <span class="eyebrow">$WIF · Robinhood Chain</span>
+      <h1>Back a builder.<br>Pay them <em>when they ship.</em></h1>
+      <p class="lede">Lock $WIF behind a team building on Robinhood Chain. It reaches them only when Hey Research Lab counts real ships — releases, deployed contracts, code that changed — each with its public source. No ships by the deadline, and every backer takes their $WIF back.</p>
+    </div>
+    <div class="stats" aria-live="polite">
+      <div class="stat"><div class="k">$WIF locked</div><div class="v" id="sLocked">—</div></div>
+      <div class="stat"><div class="k">Open bounties</div><div class="v" id="sOpen">—</div></div>
+      <div class="stat"><div class="k">Paid to builders</div><div class="v" id="sPaid">—</div></div>
+      <div class="stat"><div class="k">Burned</div><div class="v" id="sBurned">—</div></div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step"><div class="n">1</div><h3>Back</h3><p>Open a bounty for any project on HEY and lock $WIF in it. Anyone can add more.</p></div>
+    <div class="step"><div class="n">2</div><h3>Ship</h3><p>The builder ships. HEY reads it from its sources and counts it by the rule it uses on every page.</p></div>
+    <div class="step"><div class="n">3</div><h3>Release</h3><p>At the target, HEY signs the count and the $WIF goes to the builder, a slice burned. Miss it, and backers take it back.</p></div>
+  </div>
+
+  <section id="open">
+    <div class="sh"><h2>Open a bounty</h2><p>Two wallet prompts: approve, then open.</p></div>
+    <div class="composer">
+      <form id="create" class="card" novalidate>
+        <div class="group">
+          <div class="legend">Who you're backing</div>
+          <div class="grid2">
+            <div class="f">
+              <label for="slug">Project on HEY</label>
+              <div class="input"><input id="slug" name="slug" placeholder="predict-fwa" autocomplete="off" spellcheck="false" required></div>
+              <div class="hint" id="slugHint">The slug in heyresearch.xyz/project/<span class="mono">slug</span></div>
+            </div>
+            <div class="f">
+              <label for="builder">Builder's payout address</label>
+              <div class="input"><input id="builder" class="addr" name="builder" placeholder="0x…" autocomplete="off" spellcheck="false" required></div>
+              <div class="hint" id="builderHint">A wallet HEY ties to the project. It can't be changed later.</div>
+            </div>
+          </div>
+          <div class="project" id="projectCard" style="margin-top:12px"></div>
+        </div>
+        <div class="group">
+          <div class="legend">Terms</div>
+          <div class="grid2">
+            <div class="f">
+              <label for="minShips">Ships needed</label>
+              <div class="input"><input id="minShips" name="minShips" class="has-unit" type="number" inputmode="numeric" min="1" max="1000" value="3" required><span class="unit">ships</span></div>
+              <div class="hint">Counted by HEY after the bounty opens.</div>
+            </div>
+            <div class="f">
+              <label for="days">Time to ship</label>
+              <div class="input"><input id="days" name="days" class="has-unit" type="number" inputmode="numeric" min="1" max="365" value="14" required><span class="unit">days</span></div>
+              <div class="hint" id="daysHint"></div>
+            </div>
+            <div class="f">
+              <label for="amount">$WIF to lock</label>
+              <div class="input"><input id="amount" name="amount" class="has-unit" type="number" inputmode="decimal" min="0" step="any" value="100000" required><span class="unit">WIF</span></div>
+              <div class="hint" id="balHint"></div>
+            </div>
+            <div class="f">
+              <label for="burn">Burn on payout</label>
+              <div class="input"><input id="burn" name="burn" class="has-unit" type="number" inputmode="decimal" min="0" max="10" step="0.5" value="2" required><span class="unit">%</span></div>
+              <div class="hint">0–10%, sent to the dead address.</div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <aside class="card preview" aria-live="polite">
+        <div class="t">Bounty preview</div>
+        <div class="amt" id="pAmt">100,000<small>WIF</small></div>
+        <dl>
+          <div><dt>Builder receives</dt><dd id="pPay">98,000 WIF</dd></div>
+          <div><dt>Burned on payout</dt><dd id="pBurn">2,000 WIF</dd></div>
+          <div><dt>Releases at</dt><dd id="pShips">3 ships</dd></div>
+          <div><dt>Ship by</dt><dd id="pBy">—</dd></div>
+          <div><dt>Refunds open</dt><dd id="pRefund">—</dd></div>
+        </dl>
+        <p class="sentence" id="pSentence">Enter a project and a payout address.</p>
+        <button class="go" type="submit" form="create" id="openBtn">Open bounty</button>
+        <p class="fine">You can take your $WIF back if the target isn't met.</p>
+      </aside>
     </div>
   </section>
 
-  <h2>Open a bounty</h2>
-  <div class="panel">
-    <form id="create">
-      <label>Project on HEY (slug)<input name="slug" placeholder="e.g. predict-fwa" required autocomplete="off"><span class="hint" id="slugHint">heyresearch.xyz/project/&lt;slug&gt;</span></label>
-      <label>Builder's payout address<input name="builder" placeholder="0x…" required autocomplete="off"><span class="hint">The team's own wallet, one HEY ties to the project: the wallet that claimed its page on HEY, or the deployer of its verified token. HEY won't sign a payout to any other address, and it can't be changed later.</span></label>
-      <label>Ships needed<input name="minShips" type="number" min="1" max="1000" value="3" required></label>
-      <label>Days to ship<input name="days" type="number" min="1" max="365" value="14" required></label>
-      <label>Burn on payout (%)<input name="burn" type="number" min="0" max="10" step="0.5" value="2" required><span class="hint">0–10% of the bounty is sent to the dead address when it pays out.</span></label>
-      <label>$WIF to put in<input name="amount" type="number" min="0" step="any" value="100000" required></label>
-      <div class="row" style="grid-column:1/-1"><button class="primary" type="submit">Open bounty</button><span class="hint">Two wallet prompts: approve $WIF, then open.</span></div>
-    </form>
-  </div>
+  <section id="bounties-section">
+    <div class="sh"><h2>Bounties</h2><p id="bCount"></p></div>
+    <div id="bounties" class="list"><div class="skel"></div></div>
+  </section>
 
-  <h2>Bounties</h2>
-  <div id="bounties" class="list"><p class="empty">Loading…</p></div>
+  <section>
+    <div class="sh"><h2>What you're trusting</h2></div>
+    <div class="trust">
+      <div class="card"><h3>No owner, no admin key</h3><p>Nobody can move the $WIF except to the builder the bounty named, or back to the backer who put it in.</p></div>
+      <div class="card"><h3>HEY signs a count, not a verdict</h3><p>Ships are counted by the rule HEY uses on every page. Bot commits, dependency bumps and docs-only weeks never count.</p></div>
+      <div class="card"><h3>A guardian that can only stop</h3><p>If HEY's signing key were ever lost, a separate cold key can retire the escrow: claims stop, every backer gets refunds at once.</p></div>
+    </div>
+    <div class="contract" id="contractFacts"></div>
+  </section>
 
   <footer>
-    The escrow has no owner and no admin key; HEY's attester can only release a bounty to the address it was opened for.
-    HEY counts ships by the rule it uses everywhere: corroborated building evidence, a repository's releases of one day
-    counted once, documentation-only weeks and automation never counted. Read the code:
-    <a href="https://github.com/hey-research-lab/proof-of-ship">github.com/hey-research-lab/proof-of-ship</a>.
-    Built for the World is Flat hackathon. Not affiliated with Robinhood. Not financial advice.
+    <span>Built for the World is Flat hackathon by <a href="https://heyresearch.xyz">Hey Research Lab</a> · <a href="https://github.com/hey-research-lab/proof-of-ship">Source</a></span>
+    <span>Not affiliated with Robinhood. Not financial advice.</span>
   </footer>
 </div>
-<div id="status"></div>
+<div id="toast" role="status"></div>
 <script type="module" src="./app.js"></script>
 </body>
 </html>
