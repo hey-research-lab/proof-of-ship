@@ -252,7 +252,7 @@ footer{margin:56px 0 0;padding:24px 0 48px;border-top:1px solid var(--line);font
             </div>
             <div class="f">
               <label for="amount">$WIF to lock</label>
-              <div class="input"><input id="amount" name="amount" class="has-unit" type="number" inputmode="decimal" min="0" step="any" value="100000" required><span class="unit">WIF</span></div>
+              <div class="input"><input id="amount" name="amount" class="has-unit" type="number" inputmode="decimal" min="0" step="any" value="5000" required><span class="unit">WIF</span></div>
               <div class="hint" id="balHint"></div>
             </div>
             <div class="f">
@@ -266,7 +266,7 @@ footer{margin:56px 0 0;padding:24px 0 48px;border-top:1px solid var(--line);font
 
       <aside class="card preview" aria-live="polite">
         <div class="t">Bounty preview</div>
-        <div class="amt" id="pAmt">100,000<small>WIF</small></div>
+        <div class="amt" id="pAmt">5,000<small>WIF</small></div>
         <dl>
           <div><dt>Builder receives</dt><dd id="pPay">98,000 WIF</dd></div>
           <div><dt>Burned on payout</dt><dd id="pBurn">2,000 WIF</dd></div>
@@ -302,6 +302,6 @@ footer{margin:56px 0 0;padding:24px 0 48px;border-top:1px solid var(--line);font
   </footer>
 </div>
 <div id="toast" role="status"></div>
-<script type="module" src="./app.js"></script>
+<script type="module" src="./app.js?v=3"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 import {
   createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits, getAddress, isAddress,
 } from 'https://esm.sh/viem@2.21.55';
-import { CONFIG } from './config.js';
+import { CONFIG } from './config.js?v=3';
 
 const chain = {
   id: CONFIG.chainId, name: CONFIG.chainName,
@@ -10,7 +10,7 @@ const chain = {
   blockExplorers: { default: { name: 'Blockscout', url: CONFIG.explorer } },
 };
 const pub = createPublicClient({ chain, transport: http(CONFIG.rpc) });
-const ABI = await (await fetch('./ShipEscrow.abi.json')).json();
+const ABI = await (await fetch('./ShipEscrow.abi.json?v=3')).json();
 const ERC20 = [
   { type: 'function', name: 'allowance', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }] },
@@ -50,11 +50,17 @@ async function connect() {
   if (!window.ethereum) { toast('No browser wallet found. Install one (Rabby, MetaMask) to back or release a bounty.'); return; }
   wallet = createWalletClient({ chain, transport: custom(window.ethereum) });
   [account] = await wallet.requestAddresses();
-  try { await wallet.switchChain({ id: chain.id }); } catch { await wallet.addChain({ chain }); await wallet.switchChain({ id: chain.id }); }
   $('#who').innerHTML = `<span class="dot"></span>${short(account)}`;
   $('#connect').textContent = 'Connected';
   $('#connect').disabled = true;
+  // Balances are read from Robinhood Chain directly, whatever network the wallet is on.
   showBalance();
+  try { await wallet.switchChain({ id: chain.id }); } catch {
+    try { await wallet.addChain({ chain }); await wallet.switchChain({ id: chain.id }); } catch {
+      toast('Switch your wallet to Robinhood Chain (4663) before you sign.');
+    }
+  }
+  if (window.ethereum.on) window.ethereum.on('accountsChanged', (a) => { account = a?.[0] ?? null; if (account) { $('#who').innerHTML = `<span class="dot"></span>${short(account)}`; showBalance(); load(); } });
   await load();
 }
 async function needWallet() { if (!account) await connect(); if (!account) throw new Error('Connect a wallet first.'); }
@@ -71,10 +77,14 @@ async function ensureAllowance(amount) {
   if (have >= amount) return;
   await send({ address: T.address, abi: ERC20, functionName: 'approve', args: [CONFIG.escrow, amount] }, `Approve ${fmt(amount)} ${T.symbol}`);
 }
+let heldWif = null;
 async function showBalance() {
   if (!account) return;
   const bal = await pub.readContract({ address: T.address, abi: ERC20, functionName: 'balanceOf', args: [account] }).catch(() => null);
-  if (bal !== null) $('#balHint').textContent = `You hold ${fmt(bal)} ${T.symbol}.`;
+  if (bal === null) { $('#balHint').textContent = `Couldn't read your ${T.symbol} balance; try again.`; return; }
+  heldWif = bal;
+  $('#who').innerHTML = `<span class="dot"></span>${short(account)} · ${fmt(bal)} ${T.symbol}`;
+  renderPreview();
 }
 
 // ------------------------------------------------------------------ HEY reads (public API, no key)
@@ -159,6 +169,13 @@ function renderPreview() {
   $('#pBy').textContent = v.days ? day(by) : '—';
   $('#pRefund').textContent = v.days ? day(by + GRACE) : '—';
   $('#daysHint').textContent = v.days ? `Ships counted until ${day(by)}.` : '';
+  const bh = $('#balHint'), btn = $('#openBtn');
+  if (heldWif !== null) {
+    const over = v.amount > heldWif;
+    bh.className = over ? 'hint bad' : 'hint';
+    bh.innerHTML = `${over ? 'More than you hold: ' : 'You hold '}${fmt(heldWif)} ${T.symbol}. <a href="#" id="useAll">Use all</a>`;
+    btn.disabled = over;
+  }
   const p = v.slug ? projectCache.get(v.slug) : undefined;
   const name = p?.name ?? (v.slug || 'the project');
   $('#pSentence').textContent = v.slug && isAddress(v.builder)
@@ -199,6 +216,12 @@ const checkBuilder = debounce(async () => {
     hint.className = 'hint bad'; hint.textContent = 'HEY doesn’t tie this address to the project, so it would never sign a payout to it.';
   }
 }, 450);
+form.addEventListener('click', (e) => {
+  if (e.target.id !== 'useAll' || heldWif === null) return;
+  e.preventDefault();
+  $('#amount').value = formatUnits(heldWif, T.decimals);
+  renderPreview();
+});
 form.addEventListener('input', (e) => {
   if (e.target.name === 'slug') checkSlug();
   else if (e.target.name === 'builder') checkBuilder();
@@ -220,6 +243,8 @@ form.addEventListener('submit', async (e) => {
     await needWallet();
     btn.disabled = true;
     const deadline = BigInt(now() + v.days * 86400);
+    const bal = await pub.readContract({ address: T.address, abi: ERC20, functionName: 'balanceOf', args: [account] });
+    if (v.amount > bal) throw new Error(`You hold ${fmt(bal)} ${T.symbol}; lower the amount to lock.`);
     if (v.amount > 0n) await ensureAllowance(v.amount);
     const hash = await send({ address: CONFIG.escrow, abi: ABI, functionName: 'create', args: [T.address, getAddress(v.builder), v.slug, v.minShips, deadline, v.burnBps, v.amount] }, 'Open bounty');
     toast(`Bounty opened. <a href="${tx(hash)}" target="_blank" rel="noopener">View transaction</a>`);
