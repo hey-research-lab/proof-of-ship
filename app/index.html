@@ -84,7 +84,7 @@ footer{padding:44px 0 60px;font-size:13px;color:var(--mut);line-height:1.6}
   <div class="panel">
     <form id="create">
       <label>Project on HEY (slug)<input name="slug" placeholder="e.g. predict-fwa" required autocomplete="off"><span class="hint" id="slugHint">heyresearch.xyz/project/&lt;slug&gt;</span></label>
-      <label>Builder's payout address<input name="builder" placeholder="0x…" required autocomplete="off"><span class="hint">The team's own wallet. It can't be changed later.</span></label>
+      <label>Builder's payout address<input name="builder" placeholder="0x…" required autocomplete="off"><span class="hint">The team's own wallet, one HEY ties to the project: the wallet that claimed its page on HEY, or the deployer of its verified token. HEY won't sign a payout to any other address, and it can't be changed later.</span></label>
       <label>Ships needed<input name="minShips" type="number" min="1" max="1000" value="3" required></label>
       <label>Days to ship<input name="days" type="number" min="1" max="365" value="14" required></label>
       <label>Burn on payout (%)<input name="burn" type="number" min="0" max="10" step="0.5" value="2" required><span class="hint">0–10% of the bounty is sent to the dead address when it pays out.</span></label>
