@@ -46,25 +46,98 @@ const logo = (url, name) => url
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
 // ------------------------------------------------------------------ wallet
+// ------------------------------------------------------------------ wallet discovery (EIP-6963 + injected fallback)
+const discovered = new Map();
+window.addEventListener('eip6963:announceProvider', (event) => {
+  const d = event.detail;
+  if (d?.info?.uuid && d.provider) discovered.set(d.info.uuid, d);
+});
+window.dispatchEvent(new Event('eip6963:requestProvider'));
+let provider = null;
+const isMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+const pageUrl = () => location.href.split('#')[0];
+const DEEP_LINKS = [
+  { name: 'MetaMask', href: () => `https://metamask.app.link/dapp/${pageUrl().replace(/^https?:\/\//, '')}` },
+  { name: 'Coinbase Wallet', href: () => `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(pageUrl())}` },
+  { name: 'Trust Wallet', href: () => `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(pageUrl())}` },
+  { name: 'OKX Wallet', href: () => `okx://wallet/dapp/url?dappUrl=${encodeURIComponent(pageUrl())}` },
+];
+
+function openWalletPicker() {
+  const dlg = $('#wallets');
+  const list = $('#walletList');
+  const options = [...discovered.values()];
+  let html = '';
+  if (options.length) {
+    html += options.map((d) => `<button class="wallet" data-uuid="${esc(d.info.uuid)}"><img src="${esc(d.info.icon)}" alt="" width="28" height="28"><span>${esc(d.info.name)}</span></button>`).join('');
+  } else if (window.ethereum) {
+    html += `<button class="wallet" data-uuid="injected"><span>Browser wallet</span></button>`;
+  }
+  if (!options.length && !window.ethereum) {
+    html += isMobile()
+      ? `<p class="hint">On a phone, open this page inside your wallet app's browser:</p>` +
+        DEEP_LINKS.map((w) => `<a class="wallet" href="${esc(w.href())}" rel="noopener"><span>Open in ${esc(w.name)}</span><span class="go-arrow" aria-hidden="true">↗</span></a>`).join('') +
+        `<button class="wallet" data-copy="1"><span>Copy link for another wallet</span></button>`
+      : `<p class="hint">No wallet found in this browser. Install <a href="https://rabby.io" target="_blank" rel="noopener">Rabby</a> or <a href="https://metamask.io" target="_blank" rel="noopener">MetaMask</a>, then reload. Reading bounties needs no wallet.</p>`;
+  }
+  list.innerHTML = html;
+  list.querySelectorAll('[data-uuid]').forEach((el) => el.addEventListener('click', () => {
+    const chosen = el.dataset.uuid === 'injected' ? window.ethereum : discovered.get(el.dataset.uuid)?.provider;
+    dlg.close();
+    if (chosen) useProvider(chosen).catch(fail);
+  }));
+  list.querySelector('[data-copy]')?.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(pageUrl()); toast('Link copied. Paste it in your wallet app’s browser.'); } catch { toast(pageUrl()); }
+  });
+  dlg.showModal();
+}
+
 async function connect() {
-  if (!window.ethereum) { toast('No browser wallet found. Install one (Rabby, MetaMask) to back or release a bounty.'); return; }
-  wallet = createWalletClient({ chain, transport: custom(window.ethereum) });
+  // Give EIP-6963 wallets a moment to announce themselves on a cold page.
+  if (!discovered.size) { window.dispatchEvent(new Event('eip6963:requestProvider')); await new Promise((r) => setTimeout(r, 150)); }
+  const options = [...discovered.values()];
+  if (options.length === 1) return useProvider(options[0].provider);
+  if (!options.length && window.ethereum && !isMobile()) return useProvider(window.ethereum);
+  if (!options.length && window.ethereum && isMobile()) return useProvider(window.ethereum);
+  openWalletPicker();
+}
+
+async function useProvider(p) {
+  provider = p;
+  wallet = createWalletClient({ chain, transport: custom(provider) });
   [account] = await wallet.requestAddresses();
   $('#who').innerHTML = `<span class="dot"></span>${short(account)}`;
   $('#connect').textContent = 'Connected';
   $('#connect').disabled = true;
   // Balances are read from Robinhood Chain directly, whatever network the wallet is on.
   showBalance();
+  await ensureChain(false);
+  provider.on?.('accountsChanged', (a) => {
+    account = a?.[0] ?? null;
+    if (account) { $('#who').innerHTML = `<span class="dot"></span>${short(account)}`; showBalance(); load(); }
+    else { $('#who').innerHTML = ''; $('#connect').textContent = 'Connect wallet'; $('#connect').disabled = false; }
+  });
+  provider.on?.('chainChanged', () => showNetwork());
+  await load();
+}
+
+async function showNetwork() {
+  if (!provider) return;
+  const id = Number(await provider.request({ method: 'eth_chainId' }).catch(() => 0));
+  $('#switchNet').hidden = id === chain.id;
+  return id;
+}
+async function ensureChain(strict) {
   try { await wallet.switchChain({ id: chain.id }); } catch {
     try { await wallet.addChain({ chain }); await wallet.switchChain({ id: chain.id }); } catch {
-      toast('Switch your wallet to Robinhood Chain (4663) before you sign.');
+      if (strict) throw new Error('Switch your wallet to Robinhood Chain (4663) to sign.');
     }
   }
-  if (window.ethereum.on) window.ethereum.on('accountsChanged', (a) => { account = a?.[0] ?? null; if (account) { $('#who').innerHTML = `<span class="dot"></span>${short(account)}`; showBalance(); load(); } });
-  await load();
+  return showNetwork();
 }
 async function needWallet() { if (!account) await connect(); if (!account) throw new Error('Connect a wallet first.'); }
 async function send(req, label) {
+  if ((await showNetwork()) !== chain.id) await ensureChain(true);
   toast(`${label}: confirm in your wallet…`, true);
   const hash = await wallet.writeContract({ account, chain, ...req });
   toast(`${label}: waiting for <a href="${tx(hash)}" target="_blank" rel="noopener">the transaction</a>…`, true);
@@ -300,7 +373,7 @@ async function renderBounty({ id, b, slug }) {
   const name = project?.name ?? slug;
   const actions = [];
   if (met && inWindow && !note) actions.push(`<button class="go" data-act="claim" data-id="${id}">Release to builder</button>`);
-  if (!b.paid && now() < Number(b.deadline)) actions.push(`<button data-act="fund" data-id="${id}">Add ${T.symbol}</button>`);
+  if (!b.paid && now() < Number(b.deadline)) actions.push(`<button data-act="fund" data-id="${id}">Add ${T.symbol}</button><span class="fund-box" data-fund-box="${id}" hidden><input type="number" inputmode="decimal" min="0" step="any" placeholder="1000" aria-label="${T.symbol} to add"><button class="go" data-act="fund" data-id="${id}">Add</button></span>`);
   if (!b.paid && now() > graceEnd && mine > 0n) actions.push(`<button data-act="refund" data-id="${id}">Take back ${fmt(mine)} ${T.symbol}</button>`);
   const list = ships.slice(0, 4).map((s) => `<li><span>${esc(s.title ?? s.kind)}${s.source ? ` <a href="${esc(s.source)}" target="_blank" rel="noopener">source ↗</a>` : ''}</span></li>`).join('');
   const progressLabel = b.paid ? 'Released' : have === null ? 'Ships HEY counted' : `${have} of ${need} ships counted`;
@@ -327,9 +400,13 @@ async function renderBounty({ id, b, slug }) {
 async function act(kind, id) {
   await needWallet();
   if (kind === 'fund') {
-    const v = prompt(`How much ${T.symbol} to add to bounty #${id}?`, '10000');
-    if (!v) return;
+    const box = document.querySelector(`[data-fund-box="${id}"]`);
+    if (box && box.hidden) { box.hidden = false; box.querySelector('input')?.focus(); return; }
+    const v = box?.querySelector('input')?.value?.trim();
+    if (!v || Number(v) <= 0) throw new Error(`Enter how much ${T.symbol} to add.`);
     const amount = parseUnits(v, T.decimals);
+    const bal = await pub.readContract({ address: T.address, abi: ERC20, functionName: 'balanceOf', args: [account] });
+    if (amount > bal) throw new Error(`You hold ${fmt(bal)} ${T.symbol}.`);
     await ensureAllowance(amount);
     await send({ address: CONFIG.escrow, abi: ABI, functionName: 'fund', args: [BigInt(id), amount] }, 'Add to bounty');
   } else if (kind === 'claim') {
@@ -364,6 +441,8 @@ function renderContract() {
 
 function fail(err) { toast(esc(err?.shortMessage ?? err?.message ?? String(err))); }
 $('#connect').addEventListener('click', () => connect().catch(fail));
+$('#switchNet')?.addEventListener('click', () => ensureChain(true).catch(fail));
+$('#walletsClose')?.addEventListener('click', () => $('#wallets').close());
 renderPreview();
 renderContract();
 load().catch(fail);
