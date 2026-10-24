@@ -63,6 +63,25 @@ Ships(bytes32 project, address builder, uint64 since, uint64 until, uint32 ships
 `evidence` is the hash of the exact ship ids (`ship:<uuid>`) the count rests on, each of which opens on HEY with its
 source. HEY signs at `GET https://heyresearch.xyz/api/v1/proof-of-ship/attestation?slug=&builder=&since=&until=&escrow=`.
 
+## How it is built to be trusted
+
+- **No owner, no admin key, no upgrade.** The only ways $WIF leaves the escrow are a release to the builder the bounty
+  named (minus its burn share) and a refund of each backer's own contribution.
+- **Source verified** on [Sourcify](https://repo.sourcify.dev/4663/0x3Da17a89F1d29aB96419269514C798a8dd6125f2)
+  (exact match), so the code anyone reads is the code that holds the $WIF.
+- **33 contract tests** (unit, fuzz with 2,000 runs, and attacks: impostor payees, replays across bounties, escrows and
+  chains, malleable signatures, reentrant tokens) plus a fork test that runs the whole flow against the real $WIF on
+  Robinhood Chain.
+- **Reviewed adversarially, twice.** Before mainnet an independent review found that the payout address was not part
+  of the signed data, so an impostor bounty could have been paid by a real project's ships; the attestation now
+  signs the builder, and the escrow checks it. After launch HEY's full audit found two ways to game the count; both
+  are closed: HEY signs only for a wallet tied to the project's *current* token (never a disowned, contested or
+  issuer token), and counts at most one ship of each kind per day, first recorded inside the bounty window.
+- **A guardian that can only stop.** If HEY's signing key were ever lost, a separate cold key can retire the escrow:
+  claims stop and every backer can take their $WIF back at once. It cannot move a single token anywhere else.
+- **No third-party script on the page.** viem is bundled into `app/vendor/`, and the page sets
+  `script-src 'self'`.
+
 ## What HEY's signature means, and doesn't
 
 It means: HEY counted this many ships for this project in this window, by the same rule as activity status on
