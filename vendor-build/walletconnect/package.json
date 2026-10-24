@@ -1,0 +1,9 @@
+{
+  "name": "proof-of-ship-vendor-walletconnect",
+  "private": true,
+  "description": "Builds app/vendor/walletconnect.js: the WalletConnect Ethereum provider, bundled once with esbuild. See app/vendor/README.md.",
+  "devDependencies": {
+    "@walletconnect/ethereum-provider": "2.26.0",
+    "esbuild": "0.25.12"
+  }
+}

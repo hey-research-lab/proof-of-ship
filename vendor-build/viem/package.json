@@ -1,0 +1,9 @@
+{
+  "name": "proof-of-ship-vendor-viem",
+  "private": true,
+  "description": "Builds app/vendor/viem.js: viem, bundled once with esbuild. See app/vendor/README.md.",
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "viem": "2.21.55"
+  }
+}
