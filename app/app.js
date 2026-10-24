@@ -1,7 +1,19 @@
 import {
-  createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits, getAddress, isAddress,
-} from './vendor/viem.js?v=5';
+  createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits, getAddress, isAddress, keccak256, stringToBytes,
+} from './vendor/viem.js?v=6';
 import { CONFIG } from './config.js?v=8';
+
+// A page that signs approve, fund and claim never runs inside another site's frame: it says so, links to itself and
+// wires no action. GitHub Pages cannot send frame-ancestors, so the page checks for itself.
+const framed = (() => { try { return window.top !== window.self; } catch { return true; } })();
+if (framed) {
+  const link = Object.assign(document.createElement('a'), { href: location.href, target: '_top', rel: 'noopener', textContent: 'Open it directly' });
+  const note = Object.assign(document.createElement('p'), { textContent: 'Proof of Ship does not run inside another page. ' });
+  note.style.cssText = 'padding:24px;font:16px/1.5 system-ui,sans-serif';
+  note.append(link, '.');
+  document.body.replaceChildren(note);
+  throw new Error('Proof of Ship does not run inside a frame.');
+}
 
 const chain = {
   id: CONFIG.chainId, name: CONFIG.chainName,
@@ -40,9 +52,26 @@ const day = (s) => new Date(Number(s) * 1000).toLocaleDateString('en-GB', { day:
 const now = () => Math.floor(Date.now() / 1000);
 const tx = (h) => `${CONFIG.explorer}/tx/${h}`;
 const addrUrl = (a) => `${CONFIG.explorer}/address/${a}`;
-const logo = (url, name) => url
-  ? `<img src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`
+/** A link or image address from HEY or the chain, only when it is https:; anything else is not rendered. */
+const httpsUrl = (url) => { try { const u = new URL(String(url)); return u.protocol === 'https:' ? u.href : null; } catch { return null; } };
+const logo = (url, name) => httpsUrl(url)
+  ? `<img src="${esc(httpsUrl(url))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-logo>`
   : `<span class="ph" aria-hidden="true" title="${esc(name)}"></span>`;
+/** A logo that fails to load becomes the placeholder: a listener, since the page's CSP refuses inline handlers. */
+function wireLogos(root) {
+  root.querySelectorAll('img[data-logo]').forEach((img) => {
+    const swap = () => img.replaceWith(Object.assign(document.createElement('span'), { className: 'ph' }));
+    if (img.complete && img.naturalWidth === 0) swap();
+    else img.addEventListener('error', swap, { once: true });
+  });
+}
+/** HEY slugs are lower-case letters, digits and hyphens; the escrow keys a bounty on keccak256 of the slug's exact bytes. */
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,127}$/;
+const isHeySlug = (slug) => SLUG_RE.test(slug);
+const sameHash = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
+/** A bounty HEY can ever sign for: its slug is a HEY slug, and exactly the bytes the escrow hashed into `project`. */
+const bountySlugOk = (slug, project) => isHeySlug(slug) && sameHash(keccak256(stringToBytes(slug)), project);
+const SLUG_FORM_MESSAGE = 'Use the project’s HEY slug exactly as in heyresearch.xyz/project/slug: lower-case letters, digits and hyphens, no spaces. A bounty opened with any other slug can never be released.';
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
 // ------------------------------------------------------------------ wallet
@@ -299,7 +328,8 @@ function readForm() {
   let amount = 0n;
   try { amount = parseUnits(amountStr, T.decimals); } catch { /* shown as 0 */ }
   return {
-    slug: String(f.get('slug') || '').trim().toLowerCase(),
+    // As typed (less surrounding spaces), never tidied: the escrow keys the bounty on these exact bytes.
+    slug: String(f.get('slug') || '').trim(),
     builder: String(f.get('builder') || '').trim(),
     minShips: Math.max(0, Math.floor(Number(f.get('minShips')) || 0)),
     days: Math.max(0, Math.floor(Number(f.get('days')) || 0)),
@@ -336,12 +366,14 @@ const checkSlug = debounce(async () => {
   const hint = $('#slugHint'), card = $('#projectCard');
   hint.className = 'hint';
   if (!slug) { hint.innerHTML = 'The slug in heyresearch.xyz/project/<span class="mono">slug</span>'; card.className = 'project'; renderPreview(); return; }
+  if (!isHeySlug(slug)) { hint.className = 'hint bad'; hint.textContent = SLUG_FORM_MESSAGE; card.className = 'project'; renderPreview(); return; }
   const p = await heyProject(slug).catch(() => undefined);
   if (p === null) { hint.className = 'hint bad'; hint.textContent = 'Not a published project on HEY.'; card.className = 'project'; }
   else if (p) {
     hint.className = 'hint ok'; hint.textContent = 'Found on HEY.';
     const last = p.lastShippedAt ? `last shipped ${day(Date.parse(p.lastShippedAt) / 1000)}` : 'no ship read yet';
     card.innerHTML = `${logo(p.logoUrl, p.name)}<div><b>${esc(p.name)}</b><span>${esc(String(p.activityStatus ?? '').toLowerCase().replace('_', ' '))} · ${last}</span></div>`;
+    wireLogos(card);
     card.className = 'project on';
   }
   renderPreview();
@@ -354,17 +386,28 @@ const checkBuilder = debounce(async () => {
   if (!builder) { hint.textContent = "A wallet HEY ties to the project. It can't be changed later."; renderPreview(); return; }
   if (!isAddress(builder)) { hint.className = 'hint bad'; hint.textContent = 'Not a valid address.'; renderPreview(); return; }
   renderPreview();
-  if (!slug || !CONFIG.escrow) return;
+  if (!slug || !isHeySlug(slug) || !CONFIG.escrow) return;
+  const tie = await builderTie(slug, builder);
+  if (tie.ok) { hint.className = 'hint ok'; hint.textContent = tie.text; }
+  else if (tie.known) { hint.className = 'hint bad'; hint.textContent = tie.text; }
+}, 450);
+/**
+ * Whether HEY ties a payout address to the project — asked of HEY's attestation route over a one-minute window, so
+ * nothing is signed that could be used. `known` is false when HEY could not be asked (offline, busy, paused).
+ */
+async function builderTie(slug, builder) {
   const t = now() - 120;
   const res = await heyAttestation(slug, builder, t - 60, t).catch(() => null);
-  if (!res) return;
-  if (res.ok) {
+  if (res?.ok) {
     const how = res.body.builderTie === 'wallet_claim' ? 'it signed for the project’s token to claim the project on HEY' : 'it deployed the project’s verified token';
-    hint.className = 'hint ok'; hint.textContent = `HEY ties this address to the project: ${how}.`;
-  } else if (res.status === 403) {
-    hint.className = 'hint bad'; hint.textContent = 'HEY doesn’t tie this address to the project, so it would never sign a payout to it.';
+    return { ok: true, known: true, text: `HEY ties this address to the project: ${how}.` };
   }
-}, 450);
+  if (res?.status === 403) {
+    return { ok: false, known: true, text: `HEY doesn’t tie this address to the project, so it would never sign a payout to it. ${res.body?.message ?? ''}`.trim() };
+  }
+  if (res?.status === 400 || res?.status === 404) return { ok: false, known: true, text: res.body?.message ?? 'HEY refused this project.' };
+  return { ok: false, known: false, text: 'HEY couldn’t check this payout address just now; try again shortly.' };
+}
 form.addEventListener('click', (e) => {
   if (e.target.id !== 'useAll' || heldWif === null) return;
   e.preventDefault();
@@ -385,11 +428,16 @@ form.addEventListener('submit', async (e) => {
     const v = readForm();
     const bad = (id, hintId, msg) => { const h = $(hintId); h.className = 'hint bad'; h.textContent = msg; $(id).focus(); $(id).scrollIntoView({ behavior: 'smooth', block: 'center' }); return new Error(msg); };
     if (!v.slug) throw bad('#slug', '#slugHint', 'Type the project’s slug, e.g. predict-fwa.');
+    // Refused, not warned: the escrow keys a bounty on these bytes for good, and HEY signs only a HEY slug.
+    if (!isHeySlug(v.slug)) throw bad('#slug', '#slugHint', SLUG_FORM_MESSAGE);
     if (!isAddress(v.builder)) throw bad('#builder', '#builderHint', 'Paste the builder’s payout address (0x…).');
     if (v.minShips < 1) throw new Error('A bounty needs at least one ship.');
     if (v.days < 1 || v.days > 365) throw new Error('Time to ship is 1 to 365 days.');
     const project = await heyProject(v.slug);
     if (!project) throw new Error(`HEY has no published project "${v.slug}".`);
+    // Refused, not warned: a bounty for an address HEY will never sign for locks its $WIF until the deadline passes.
+    const tie = await builderTie(v.slug, v.builder);
+    if (!tie.ok) throw bad('#builder', '#builderHint', tie.text);
     await needWallet();
     btn.disabled = true;
     const deadline = BigInt(now() + v.days * 86400);
@@ -404,6 +452,16 @@ form.addEventListener('submit', async (e) => {
 });
 
 // ------------------------------------------------------------------ bounties
+/*
+ * The list reads the chain newest first, a page at a time, and shows only funded bounties: an empty bounty costs a
+ * cent to open, so the page never reads or asks HEY about every one. HEY is asked about a bounty only when its card
+ * scrolls into view.
+ */
+const PAGE = 20;        // funded bounties shown per page
+const SCAN = 100;       // bounty ids read from the chain per page at most
+const CHUNK = 10;       // ids read at once
+let listing = null;
+
 async function load() {
   const box = $('#bounties');
   if (!CONFIG.escrow) { box.innerHTML = '<div class="empty">The escrow is being deployed. Bounties appear here as soon as it is live.</div>'; return; }
@@ -418,66 +476,165 @@ async function load() {
     $('#bCount').textContent = '';
     return;
   }
-  const ids = [...Array(count).keys()].reverse();
-  const rows = await Promise.all(ids.map(async (id) => {
-    const [b, slug] = await Promise.all([
-      pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'bounty', args: [BigInt(id)] }),
-      pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'slugOf', args: [BigInt(id)] }),
-    ]);
-    return { id, b, slug };
-  }));
-  let paid = 0n, burned = 0n, open = 0;
-  for (const { b } of rows) {
-    if (b.paid) { const x = (b.total * BigInt(b.burnBps)) / 10_000n; burned += x; paid += b.total - x; }
-    else if (now() <= Number(b.deadline) + GRACE) open++;
-  }
-  $('#sOpen').textContent = String(open);
-  $('#sPaid').innerHTML = `${compact(paid)}<small>${T.symbol}</small>`;
-  $('#sBurned').innerHTML = `${compact(burned)}<small>${T.symbol}</small>`;
-  $('#bCount').textContent = `${count} bount${count === 1 ? 'y' : 'ies'} on chain`;
-  box.innerHTML = (await Promise.all(rows.map(renderBounty))).join('');
-  box.querySelectorAll('[data-act]').forEach((el) => el.addEventListener('click', () => act(el.dataset.act, Number(el.dataset.id)).catch(fail)));
+  listing?.observer?.disconnect();
+  listing = { count, next: count - 1, shown: 0, unfunded: 0, paid: 0n, burned: 0n, open: 0, observer: null };
+  box.innerHTML = '';
+  await more();
 }
 
-async function renderBounty({ id, b, slug }) {
+async function more() {
+  const box = $('#bounties');
+  const l = listing;
+  box.querySelector('.more')?.remove();
+  const funded = [];
+  let read = 0;
+  while (l.next >= 0 && funded.length < PAGE && read < SCAN) {
+    const ids = [];
+    while (ids.length < CHUNK && l.next >= 0 && read < SCAN) { ids.push(l.next--); read++; }
+    const bounties = await Promise.all(ids.map((id) => pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'bounty', args: [BigInt(id)] })));
+    ids.forEach((id, i) => {
+      const b = bounties[i];
+      if (b.paid) { const x = (b.total * BigInt(b.burnBps)) / 10_000n; l.burned += x; l.paid += b.total - x; }
+      else if (b.total > 0n && now() <= Number(b.deadline) + GRACE) l.open++;
+      if (b.total === 0n) l.unfunded++;
+      else funded.push({ id, b });
+    });
+  }
+  const slugs = await Promise.all(funded.map(({ id }) => pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'slugOf', args: [BigInt(id)] })));
+  const rows = funded.map((row, i) => ({ ...row, slug: slugs[i] }));
+  l.shown += rows.length;
+
+  // The totals are over every bounty only once every bounty has been read.
+  const all = l.next < 0;
+  $('#sOpen').textContent = all ? String(l.open) : '—';
+  $('#sPaid').innerHTML = all ? `${compact(l.paid)}<small>${T.symbol}</small>` : '—';
+  $('#sBurned').innerHTML = all ? `${compact(l.burned)}<small>${T.symbol}</small>` : '—';
+  $('#bCount').textContent = `${l.count} bount${l.count === 1 ? 'y' : 'ies'} on chain${l.unfunded ? ` · ${l.unfunded} with nothing locked not shown` : ''}`;
+
+  if (!l.observer && 'IntersectionObserver' in window) {
+    l.observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        l.observer.unobserve(entry.target);
+        hydrate(entry.target).catch(() => undefined);
+      }
+    }, { rootMargin: '200px 0px' });
+  }
+  for (const row of rows) {
+    const holder = document.createElement('div');
+    holder.innerHTML = renderBounty(row, { pending: true });
+    const card = holder.firstElementChild;
+    card.__row = row;
+    box.append(card);
+    wireCard(card);
+    if (l.observer) l.observer.observe(card); else hydrate(card).catch(() => undefined);
+  }
+  if (!l.shown && l.next < 0) box.innerHTML = '<div class="empty">No funded bounties yet. Open one above.</div>';
+  if (l.next >= 0) {
+    const btn = Object.assign(document.createElement('button'), { className: 'more', textContent: 'Show more bounties' });
+    btn.addEventListener('click', () => { btn.disabled = true; more().catch(fail); });
+    box.append(btn);
+  }
+}
+
+function wireCard(card) {
+  card.querySelectorAll('[data-act]').forEach((el) => el.addEventListener('click', () => act(el.dataset.act, Number(el.dataset.id)).catch(fail)));
+  wireLogos(card);
+}
+
+/** Ask HEY about one bounty (its project, its signed count and the ships behind it) and redraw its card. */
+async function hydrate(card) {
+  const row = card.__row;
+  const { id, b, slug } = row;
+  const slugOk = bountySlugOk(slug, b.project);
   const until = Math.min(now() - 120, Number(b.deadline));
   const [project, mine, att] = await Promise.all([
-    heyProject(slug).catch(() => null),
-    account ? pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'contributed', args: [BigInt(id), account] }) : 0n,
-    b.paid || until < Number(b.start) ? null : heyAttestation(slug, b.builder, Number(b.start), until).catch(() => null),
+    slugOk ? heyProject(slug).catch(() => null) : null,
+    account ? pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'contributed', args: [BigInt(id), account] }).catch(() => 0n) : 0n,
+    !slugOk || b.paid || until < Number(b.start) ? null : heyAttestation(slug, b.builder, Number(b.start), until).catch(() => null),
   ]);
-  let have = null, ships = [], note = '';
-  if (att?.ok) {
-    have = Number(att.body.attestation.ships);
-    ships = await shipTitles(slug, att.body.evidenceIds ?? []);
-  } else if (att?.status === 403) {
-    note = 'HEY doesn’t tie this payout address to the project, so it will never release. Backers can take their $WIF back after the deadline.';
-  }
-  // No signed count, no claim of one: HEY's timeline is not what the escrow releases on (it counts each kind once a day
-  // and only ships HEY recorded inside the window), so the page says the count is unavailable rather than guess.
-  const unavailable = !b.paid && !note && !att?.ok && until >= Number(b.start);
+  const ships = att?.ok ? await shipTitles(slug, att.body.evidenceIds ?? []).catch(() => []) : [];
+  const holder = document.createElement('div');
+  holder.innerHTML = renderBounty(row, { project, mine, att, ships });
+  const next = holder.firstElementChild;
+  next.__row = row;
+  card.replaceWith(next);
+  wireCard(next);
+}
+
+const KIND = {
+  release: 'Release', code: 'Code week', contract_deploy: 'Contract deployed', contract_upgrade: 'Contract upgrade',
+  build: 'Build', integration: 'Integration', announcement: 'Entry', contract_source: 'Contract source',
+};
+const shortId = (evidenceId) => `${String(evidenceId).slice(0, 13)}…`;
+
+/** Which ships HEY counted, each with its kind, date and evidence page, so a backer can judge them. */
+function countedShips(att, ships) {
+  const ids = att.body.evidenceIds ?? [];
+  const urls = att.body.evidenceUrls ?? [];
+  if (!ids.length) return '';
+  const byId = new Map(ships.map((s) => [s.id, s]));
+  const items = ids.slice(0, 12).map((evidenceId, i) => {
+    const s = byId.get(evidenceId);
+    const evidence = httpsUrl(urls[i]);
+    const source = httpsUrl(s?.source);
+    const what = s ? `<b>${esc(KIND[s.kind] ?? s.kind ?? 'Ship')}</b> · ${s.at ? esc(day(Date.parse(s.at) / 1000)) : 'date not read'} · ${esc(s.title ?? '')}` : `<b>Counted ship</b> · <span class="mono">${esc(shortId(evidenceId))}</span>`;
+    return `<li><span>${what}${evidence ? ` <a href="${esc(evidence)}" target="_blank" rel="noopener">evidence ↗</a>` : ''}${source ? ` <a href="${esc(source)}" target="_blank" rel="noopener">source ↗</a>` : ''}</span></li>`;
+  });
+  const rest = ids.length > 12 ? `<li><span>and ${ids.length - 12} more</span></li>` : '';
+  return `<ul class="ships">${items.join('')}${rest}</ul>`;
+}
+
+function renderBounty({ id, b, slug }, hey) {
+  const { project = null, mine = 0n, att = null, ships = [], pending = false } = hey;
+  const slugOk = bountySlugOk(slug, b.project);
+  const until = Math.min(now() - 120, Number(b.deadline));
   const need = Number(b.minShips);
   const graceEnd = Number(b.deadline) + GRACE;
   const inWindow = !b.paid && now() <= graceEnd;
+  // HEY's answer counts only when it is for this bounty's project: the slug's hash the escrow will check.
+  const signed = att?.ok && sameHash(att.body.attestation?.project, b.project);
+  let have = null, note = '', blocked = false;
+  if (!b.paid && !slugOk) {
+    blocked = true;
+    note = `This bounty cannot be released — the slug it was opened with is not a HEY slug; backers can refund after ${day(graceEnd)}.`;
+  } else if (signed) {
+    have = Number(att.body.attestation.ships);
+  } else if (att?.status === 403) {
+    blocked = true;
+    note = 'HEY doesn’t tie this payout address to the project, so it will never release. Backers can take their $WIF back after the deadline.';
+  } else if (att?.status === 404) {
+    blocked = true;
+    note = 'HEY has no published project at this slug, so it will not sign a release for it now.';
+  }
+  // No signed count, no claim of one: HEY's timeline is not what the escrow releases on (it counts each kind once a day
+  // and only ships HEY recorded inside the window), so the page says the count is unavailable rather than guess.
+  const unavailable = !pending && !b.paid && !note && !signed && until >= Number(b.start);
   const met = have !== null && have >= need;
   const state = b.paid ? ['ok', 'Paid out']
-    : note ? ['off', 'Payout address not tied']
+    : !slugOk ? ['off', 'Cannot be released · not a HEY slug']
+    : att?.status === 403 ? ['off', 'Payout address not tied']
+    : att?.status === 404 ? ['off', 'Not on HEY · cannot release now']
+    : pending && inWindow ? ['wait', 'Reading HEY…']
     : met && inWindow ? ['ok', 'Target met · ready to release']
     : unavailable && inWindow ? ['wait', 'HEY count unavailable · try again shortly']
     : now() > graceEnd ? ['off', 'Closed · backers can take back']
     : now() > Number(b.deadline) ? ['wait', 'Deadline passed · grace period']
     : ['wait', 'Building'];
   const pct = b.paid ? 100 : have === null ? 0 : Math.min(100, Math.round((have / need) * 100));
-  const name = project?.name ?? slug;
+  const name = slugOk ? project?.name ?? slug : slug.length > 60 ? `${slug.slice(0, 60)}…` : slug;
   const actions = [];
-  if (met && inWindow && !note) actions.push(`<button class="go" data-act="claim" data-id="${id}">Release to builder</button>`);
-  if (!b.paid && now() < Number(b.deadline)) actions.push(`<button data-act="fund" data-id="${id}">Add ${T.symbol}</button><span class="fund-box" data-fund-box="${id}" hidden><input type="number" inputmode="decimal" min="0" step="any" placeholder="1000" aria-label="${T.symbol} to add"><button class="go" data-act="fund" data-id="${id}">Add</button></span>`);
+  if (met && inWindow && !blocked) actions.push(`<button class="go" data-act="claim" data-id="${id}">Release to builder</button>`);
+  if (!pending && !blocked && !b.paid && now() < Number(b.deadline)) actions.push(`<button data-act="fund" data-id="${id}">Add ${T.symbol}</button><span class="fund-box" data-fund-box="${id}" hidden><input type="number" inputmode="decimal" min="0" step="any" placeholder="1000" aria-label="${T.symbol} to add"><button class="go" data-act="fund" data-id="${id}">Add</button></span>`);
   if (!b.paid && now() > graceEnd && mine > 0n) actions.push(`<button data-act="refund" data-id="${id}">Take back ${fmt(mine)} ${T.symbol}</button>`);
-  const list = ships.slice(0, 4).map((s) => `<li><span>${esc(s.title ?? s.kind)}${s.source ? ` <a href="${esc(s.source)}" target="_blank" rel="noopener">source ↗</a>` : ''}</span></li>`).join('');
+  const list = signed ? countedShips(att, ships) : '';
   const progressLabel = b.paid ? 'Released' : have === null ? 'Ships HEY counted' : `${have} of ${need} ships counted`;
+  const where = slugOk
+    ? `<a class="slug" href="${CONFIG.hey}/project/${encodeURIComponent(slug)}" target="_blank" rel="noopener">heyresearch.xyz/project/${esc(slug)}</a>`
+    : '<span class="slug">opened with a slug that is not a HEY slug</span>';
   return `<article class="card bounty">
     <div class="top">
-      <div class="id">${logo(project?.logoUrl, name)}<div><span class="name">${esc(name)}</span><a class="slug" href="${CONFIG.hey}/project/${encodeURIComponent(slug)}" target="_blank" rel="noopener">heyresearch.xyz/project/${esc(slug)}</a></div></div>
+      <div class="id">${logo(project?.logoUrl, name)}<div><span class="name">${esc(name)}</span>${where}</div></div>
       <span class="chip ${state[0]}">${state[1]}</span>
     </div>
     <div class="facts">
@@ -490,7 +647,7 @@ async function renderBounty({ id, b, slug }) {
       <div class="lbl"><span>${progressLabel}</span><span>${b.paid ? '' : `target ${need}`}</span></div>
       <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${need}" aria-valuenow="${have ?? 0}"><i style="width:${pct}%"></i></div>
     </div>
-    ${note ? `<p class="hint bad" style="margin:0">${note}</p>` : list ? `<ul class="ships">${list}</ul>` : b.paid ? '' : '<p class="hint" style="margin:0">No counted ships since the bounty opened yet.</p>'}
+    ${note ? `<p class="hint bad" style="margin:0">${esc(note)}</p>` : list || (b.paid || pending ? '' : '<p class="hint" style="margin:0">No counted ships since the bounty opened yet.</p>')}
     <div class="actions">${actions.join('')}<span class="mono">#${id} · opened ${day(b.start)}${mine > 0n ? ` · you locked ${fmt(mine)} ${T.symbol}` : ''}</span></div>
   </article>`;
 }
@@ -502,6 +659,11 @@ async function act(kind, id) {
     if (box && box.hidden) { box.hidden = false; box.querySelector('input')?.focus(); return; }
     const v = box?.querySelector('input')?.value?.trim();
     if (!v || Number(v) <= 0) throw new Error(`Enter how much ${T.symbol} to add.`);
+    const [b, slug] = await Promise.all([
+      pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'bounty', args: [BigInt(id)] }),
+      pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'slugOf', args: [BigInt(id)] }),
+    ]);
+    if (!bountySlugOk(slug, b.project)) throw new Error('This bounty cannot be released — the slug it was opened with is not a HEY slug — so nothing more can be added.');
     const amount = parseUnits(v, T.decimals);
     const bal = await pub.readContract({ address: T.address, abi: ERC20, functionName: 'balanceOf', args: [account] });
     if (amount > bal) throw new Error(`You hold ${fmt(bal)} ${T.symbol}.`);
@@ -510,12 +672,17 @@ async function act(kind, id) {
   } else if (kind === 'claim') {
     const b = await pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'bounty', args: [BigInt(id)] });
     const slug = await pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'slugOf', args: [BigInt(id)] });
+    if (!bountySlugOk(slug, b.project)) throw new Error('This bounty cannot be released — the slug it was opened with is not a HEY slug.');
     toast('Asking HEY to sign the ship count…', true);
     // HEY signs only for a payout address the project verified to HEY; the escrow checks it equals the bounty's builder.
     const res = await heyAttestation(slug, b.builder, Number(b.start), Math.min(now() - 120, Number(b.deadline)));
     if (!res.ok) throw new Error(res.body.message ?? `HEY answered ${res.status}`);
     const a = res.body.attestation;
     const att = { project: a.project, builder: getAddress(a.builder), since: BigInt(a.since), until: BigInt(a.until), ships: Number(a.ships), evidence: a.evidence, issuedAt: BigInt(a.issuedAt) };
+    // Everything the escrow checks, checked here first, so a mismatch is a sentence and not a reverted transaction.
+    if (!sameHash(att.project, b.project)) throw new Error('HEY signed for a different project than this bounty’s; nothing was sent.');
+    if (att.since !== BigInt(b.start)) throw new Error('HEY’s count starts at a different time than this bounty; nothing was sent.');
+    if (att.until > BigInt(b.deadline)) throw new Error('HEY’s count runs past this bounty’s deadline; nothing was sent.');
     if (att.builder !== getAddress(b.builder)) throw new Error('HEY does not attest this payout address for the project.');
     if (att.ships < Number(b.minShips)) throw new Error(`HEY counts ${att.ships} ships; the bounty needs ${b.minShips}.`);
     await send({ address: CONFIG.escrow, abi: ABI, functionName: 'claim', args: [BigInt(id), att, res.body.signature] }, 'Release');

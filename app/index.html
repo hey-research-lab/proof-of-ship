@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="script-src 'self'; object-src 'none'; base-uri 'self'">
+<meta http-equiv="Content-Security-Policy" content="script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; img-src 'self' https: data:; connect-src 'self' https://heyresearch.xyz https://rpc.mainnet.chain.robinhood.com wss://relay.walletconnect.org https://verify.walletconnect.org https://api.web3modal.org">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Proof of Ship</title>
 <meta name="description" content="Back a Robinhood Chain builder with $WIF. It pays out only when Hey Research Lab counts real ships, each with its source.">
@@ -350,6 +350,6 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
   <div id="walletList" class="wallet-list"></div>
   <p class="fine">Robinhood Chain (4663) is added to your wallet if it isn't there yet. Reading bounties needs no wallet.</p>
 </dialog>
-<script type="module" src="./app.js?v=8"></script>
+<script type="module" src="./app.js?v=9"></script>
 </body>
 </html>
