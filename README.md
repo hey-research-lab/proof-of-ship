@@ -24,7 +24,12 @@ happened.
 2. **Ship.** The builder ships. HEY reads its repositories, releases, contracts and feeds, and counts ships by the rule
    it uses on every page: corroborated building evidence; a repository's releases of one day count once; a deploy
    script's contracts count once; documentation-only weeks, dependency bumps, CI-only commits and automation never
-   count.
+   count. For a bounty HEY also counts only ships it first recorded inside the bounty's window (work pushed after the
+   deadline and dated back never counts), and at most one ship of each kind — a release, a contract deployment or
+   upgrade, a code week, any other entry — per day HEY first recorded it.
+   HEY signs only for a payout address its evidence ties to the project: the signer of a verified wallet-signature
+   claim made for the project's token, or that token's recorded deployer, while HEY holds the token as the project's
+   own. A renamed project's old slug keeps working.
 3. **Release.** When the count since the bounty opened reaches the target, anyone asks HEY for a signed attestation
    and submits it. The escrow pays the builder and sends the burn share to `0x…dEaD`.
 4. **Or refund.** If the target isn't met by the deadline (plus a 3-day grace for ships made before it), each backer
@@ -72,7 +77,9 @@ forge test                                             # 24 unit and fuzz tests
 FORK_RPC=https://rpc.mainnet.chain.robinhood.com forge test --mc Fork   # the full flow with the real $WIF, local fork
 ```
 
-The page in `app/` is static (viem from a CDN, no build step): `python3 -m http.server -d app`.
+The page in `app/` is static: `python3 -m http.server -d app`. It loads no third-party script: viem 2.21.55 is
+vendored in `app/vendor/viem.js` (bundled once with esbuild from the npm package, the functions `app.js` imports), and
+the page's Content-Security-Policy allows scripts from its own origin only.
 
 ## Deployment
 

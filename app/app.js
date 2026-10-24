@@ -1,7 +1,7 @@
 import {
   createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits, getAddress, isAddress,
-} from 'https://esm.sh/viem@2.21.55';
-import { CONFIG } from './config.js?v=4';
+} from './vendor/viem.js?v=5';
+import { CONFIG } from './config.js?v=5';
 
 const chain = {
   id: CONFIG.chainId, name: CONFIG.chainName,
@@ -10,7 +10,7 @@ const chain = {
   blockExplorers: { default: { name: 'Blockscout', url: CONFIG.explorer } },
 };
 const pub = createPublicClient({ chain, transport: http(CONFIG.rpc) });
-const ABI = await (await fetch('./ShipEscrow.abi.json?v=4')).json();
+const ABI = await (await fetch('./ShipEscrow.abi.json?v=5')).json();
 const ERC20 = [
   { type: 'function', name: 'allowance', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }] },
@@ -111,28 +111,6 @@ async function heyAttestation(slug, builder, since, until) {
   const j = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, body: j };
 }
-/** Fallback while the attestation endpoint isn't answering: counted ships on the project's timeline in the window. */
-async function timelineShips(slug, since, until) {
-  const out = [];
-  let cursor = null;
-  for (let page = 0; page < 4; page++) {
-    const u = new URL(`${CONFIG.hey}/api/projects/${encodeURIComponent(slug)}/timeline`);
-    u.searchParams.set('limit', '500');
-    if (cursor) u.searchParams.set('before', cursor);
-    const r = await fetch(u);
-    if (!r.ok) break;
-    const j = await r.json();
-    let older = false;
-    for (const it of j.items ?? []) {
-      const t = Math.floor(Date.parse(it.at) / 1000);
-      if (t < since) { older = true; continue; }
-      if (t <= until && it.countsAsBuilding) out.push(it);
-    }
-    if (older || !j.nextCursor) break;
-    cursor = j.nextCursor;
-  }
-  return out;
-}
 async function shipTitles(slug, ids) {
   const want = new Set(ids);
   if (!want.size) return [];
@@ -210,7 +188,7 @@ const checkBuilder = debounce(async () => {
   const res = await heyAttestation(slug, builder, t - 60, t).catch(() => null);
   if (!res) return;
   if (res.ok) {
-    const how = res.body.builderTie === 'wallet_claim' ? 'it signed to claim the project on HEY' : 'it deployed the project’s verified token';
+    const how = res.body.builderTie === 'wallet_claim' ? 'it signed for the project’s token to claim the project on HEY' : 'it deployed the project’s verified token';
     hint.className = 'hint ok'; hint.textContent = `HEY ties this address to the project: ${how}.`;
   } else if (res.status === 403) {
     hint.className = 'hint bad'; hint.textContent = 'HEY doesn’t tie this address to the project, so it would never sign a payout to it.';
@@ -303,10 +281,10 @@ async function renderBounty({ id, b, slug }) {
     ships = await shipTitles(slug, att.body.evidenceIds ?? []);
   } else if (att?.status === 403) {
     note = 'HEY doesn’t tie this payout address to the project, so it will never release. Backers can take their $WIF back after the deadline.';
-  } else if (!b.paid) {
-    ships = await timelineShips(slug, Number(b.start), until).catch(() => []);
-    have = ships.length;
   }
+  // No signed count, no claim of one: HEY's timeline is not what the escrow releases on (it counts each kind once a day
+  // and only ships HEY recorded inside the window), so the page says the count is unavailable rather than guess.
+  const unavailable = !b.paid && !note && !att?.ok && until >= Number(b.start);
   const need = Number(b.minShips);
   const graceEnd = Number(b.deadline) + GRACE;
   const inWindow = !b.paid && now() <= graceEnd;
@@ -314,6 +292,7 @@ async function renderBounty({ id, b, slug }) {
   const state = b.paid ? ['ok', 'Paid out']
     : note ? ['off', 'Payout address not tied']
     : met && inWindow ? ['ok', 'Target met · ready to release']
+    : unavailable && inWindow ? ['wait', 'HEY count unavailable · try again shortly']
     : now() > graceEnd ? ['off', 'Closed · backers can take back']
     : now() > Number(b.deadline) ? ['wait', 'Deadline passed · grace period']
     : ['wait', 'Building'];
