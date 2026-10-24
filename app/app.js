@@ -1,7 +1,7 @@
 import {
   createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits, getAddress, isAddress,
 } from './vendor/viem.js?v=5';
-import { CONFIG } from './config.js?v=5';
+import { CONFIG } from './config.js?v=8';
 
 const chain = {
   id: CONFIG.chainId, name: CONFIG.chainName,
@@ -67,7 +67,9 @@ function openWalletPicker() {
   const dlg = $('#wallets');
   const list = $('#walletList');
   const options = [...discovered.values()];
-  let html = '';
+  let html = CONFIG.walletConnectProjectId
+    ? `<button class="wallet" data-wc="1"><span>WalletConnect</span><span class="go-arrow" aria-hidden="true">QR · mobile</span></button>`
+    : '';
   if (options.length) {
     html += options.map((d) => `<button class="wallet" data-uuid="${esc(d.info.uuid)}"><img src="${esc(d.info.icon)}" alt="" width="28" height="28"><span>${esc(d.info.name)}</span></button>`).join('');
   } else if (window.ethereum) {
@@ -82,43 +84,139 @@ function openWalletPicker() {
   }
   list.innerHTML = html;
   list.querySelectorAll('[data-uuid]').forEach((el) => el.addEventListener('click', () => {
-    const chosen = el.dataset.uuid === 'injected' ? window.ethereum : discovered.get(el.dataset.uuid)?.provider;
+    const d = discovered.get(el.dataset.uuid);
+    const chosen = el.dataset.uuid === 'injected' ? window.ethereum : d?.provider;
     dlg.close();
-    if (chosen) useProvider(chosen).catch(fail);
+    if (chosen) useProvider(chosen, d ? { kind: d.info.rdns, name: d.info.name, icon: d.info.icon } : { kind: 'injected', name: 'Browser wallet' }).catch(fail);
   }));
+  list.querySelector('[data-wc]')?.addEventListener('click', () => { dlg.close(); connectWalletConnect().catch(fail); });
   list.querySelector('[data-copy]')?.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(pageUrl()); toast('Link copied. Paste it in your wallet app’s browser.'); } catch { toast(pageUrl()); }
   });
   dlg.showModal();
 }
 
+const wcMeta = (wc) => ({ kind: 'walletconnect', name: wc.session?.peer?.metadata?.name ? `${wc.session.peer.metadata.name} · WalletConnect` : 'WalletConnect', icon: wc.session?.peer?.metadata?.icons?.[0] });
+async function initWalletConnect(showQrModal) {
+  const { EthereumProvider } = await import('./vendor/walletconnect.js');
+  return EthereumProvider.init({
+    projectId: CONFIG.walletConnectProjectId,
+    optionalChains: [chain.id],
+    rpcMap: { [chain.id]: CONFIG.rpc },
+    showQrModal,
+    metadata: {
+      name: 'Proof of Ship',
+      description: 'Back a Robinhood Chain builder with $WIF. Pay them when they ship.',
+      url: location.origin + location.pathname.replace(/[^/]*$/, ''),
+      icons: [],
+    },
+  });
+}
+/** WalletConnect v2, loaded only when chosen (vendor/walletconnect.js, @walletconnect/ethereum-provider 2.26.0). */
+async function connectWalletConnect() {
+  toast('Opening WalletConnect…', true);
+  const wc = await initWalletConnect(true);
+  toast('');
+  await wc.connect();
+  await useProvider(wc, wcMeta(wc));
+}
+
 async function connect() {
   // Give EIP-6963 wallets a moment to announce themselves on a cold page.
   if (!discovered.size) { window.dispatchEvent(new Event('eip6963:requestProvider')); await new Promise((r) => setTimeout(r, 150)); }
   const options = [...discovered.values()];
-  if (options.length === 1) return useProvider(options[0].provider);
-  if (!options.length && window.ethereum && !isMobile()) return useProvider(window.ethereum);
-  if (!options.length && window.ethereum && isMobile()) return useProvider(window.ethereum);
+  // Inside a wallet app's own browser there is one wallet and nothing to choose: connect it.
+  if (isMobile() && (options.length === 1 || (!options.length && window.ethereum))) return useProvider(options[0]?.provider ?? window.ethereum, options[0] ? { kind: options[0].info.rdns, name: options[0].info.name, icon: options[0].info.icon } : { kind: 'injected', name: 'Browser wallet' });
+  // Elsewhere one wallet and no WalletConnect: connect it; otherwise let the reader choose.
+  if (!CONFIG.walletConnectProjectId && options.length === 1) return useProvider(options[0].provider, { kind: options[0].info.rdns, name: options[0].info.name, icon: options[0].info.icon });
+  if (!CONFIG.walletConnectProjectId && !options.length && window.ethereum) return useProvider(window.ethereum, { kind: 'injected', name: 'Browser wallet' });
   openWalletPicker();
 }
 
-async function useProvider(p) {
+let walletInfo = null;
+const SAVED = 'pos.wallet';
+const remember = (kind) => { try { kind ? localStorage.setItem(SAVED, kind) : localStorage.removeItem(SAVED); } catch { /* private mode */ } };
+
+function renderAccount() {
+  const on = Boolean(account);
+  $('#connect').hidden = on;
+  $('#account').hidden = !on;
+  if (!on) { $('#accountMenu').hidden = true; return; }
+  const icon = walletInfo?.icon ? `<img src="${esc(walletInfo.icon)}" alt="" width="18" height="18">` : '<span class="dot"></span>';
+  $('#account').innerHTML = `${icon}<span>${short(account)}</span>${heldWif !== null ? `<span class="muted">${compact(heldWif)} ${T.symbol}</span>` : ''}`;
+  $('#acctWallet').textContent = walletInfo?.name ?? 'Wallet';
+  $('#acctAddr').textContent = account;
+  $('#acctWif').textContent = heldWif !== null ? `${fmt(heldWif)} ${T.symbol}` : '—';
+  $('#acctExplorer').href = addrUrl(account);
+}
+
+async function useProvider(p, info = { kind: 'injected', name: 'Browser wallet' }, silent = false) {
   provider = p;
+  walletInfo = info;
   wallet = createWalletClient({ chain, transport: custom(provider) });
-  [account] = await wallet.requestAddresses();
-  $('#who').innerHTML = `<span class="dot"></span>${short(account)}`;
-  $('#connect').textContent = 'Connected';
-  $('#connect').disabled = true;
+  if (silent) {
+    const accounts = await provider.request({ method: 'eth_accounts' }).catch(() => []);
+    if (!accounts?.length) { provider = null; wallet = null; walletInfo = null; return; }
+    account = getAddress(accounts[0]);
+  } else {
+    [account] = await wallet.requestAddresses();
+  }
+  remember(info.kind);
+  renderAccount();
   // Balances are read from Robinhood Chain directly, whatever network the wallet is on.
   showBalance();
-  await ensureChain(false);
+  if (silent) await showNetwork(); else await ensureChain(false);
   provider.on?.('accountsChanged', (a) => {
-    account = a?.[0] ?? null;
-    if (account) { $('#who').innerHTML = `<span class="dot"></span>${short(account)}`; showBalance(); load(); }
-    else { $('#who').innerHTML = ''; $('#connect').textContent = 'Connect wallet'; $('#connect').disabled = false; }
+    account = a?.[0] ? getAddress(a[0]) : null;
+    heldWif = null;
+    renderAccount();
+    if (account) showBalance();
+    load();
   });
   provider.on?.('chainChanged', () => showNetwork());
+  provider.on?.('disconnect', () => { if (walletInfo?.kind === 'walletconnect') clearWallet(); });
   await load();
+}
+
+function clearWallet() {
+  account = null; provider = null; wallet = null; walletInfo = null; heldWif = null;
+  remember(null);
+  $('#switchNet').hidden = true;
+  $('#balHint').textContent = '';
+  renderAccount();
+  renderPreview();
+  restoreWallet().catch(() => undefined).finally(() => { if (!account) load().catch(fail); });
+}
+
+async function disconnect() {
+  const p = provider;
+  const kind = walletInfo?.kind;
+  clearWallet();
+  try {
+    if (kind === 'walletconnect') await p?.disconnect?.();
+    // Injected wallets: drop this site's permission where the wallet supports it (MetaMask, Rabby); the page forgets either way.
+    else await p?.request?.({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] });
+  } catch { /* not every wallet supports revoking */ }
+  toast('Disconnected.');
+}
+
+/** Bring back the last wallet without a prompt: an injected wallet that still lists this site, or a live WalletConnect session. */
+async function restoreWallet() {
+  let kind = null;
+  try { kind = localStorage.getItem(SAVED); } catch { return; }
+  if (!kind) return;
+  if (kind === 'walletconnect') {
+    if (!CONFIG.walletConnectProjectId) return;
+    const wc = await initWalletConnect(false).catch(() => null);
+    if (wc?.session) await useProvider(wc, wcMeta(wc), true);
+    else remember(null);
+    return;
+  }
+  window.dispatchEvent(new Event('eip6963:requestProvider'));
+  await new Promise((r) => setTimeout(r, 300));
+  const d = [...discovered.values()].find((x) => x.info.rdns === kind);
+  const p = d?.provider ?? (kind === 'injected' ? window.ethereum : null);
+  if (p) await useProvider(p, d ? { kind, name: d.info.name, icon: d.info.icon } : { kind, name: 'Browser wallet' }, true);
 }
 
 async function showNetwork() {
@@ -156,7 +254,7 @@ async function showBalance() {
   const bal = await pub.readContract({ address: T.address, abi: ERC20, functionName: 'balanceOf', args: [account] }).catch(() => null);
   if (bal === null) { $('#balHint').textContent = `Couldn't read your ${T.symbol} balance; try again.`; return; }
   heldWif = bal;
-  $('#who').innerHTML = `<span class="dot"></span>${short(account)} · ${fmt(bal)} ${T.symbol}`;
+  renderAccount();
   renderPreview();
 }
 
@@ -441,8 +539,13 @@ function renderContract() {
 
 function fail(err) { toast(esc(err?.shortMessage ?? err?.message ?? String(err))); }
 $('#connect').addEventListener('click', () => connect().catch(fail));
+$('#account').addEventListener('click', (e) => { e.stopPropagation(); $('#accountMenu').hidden = !$('#accountMenu').hidden; });
+document.addEventListener('click', (e) => { if (!$('#accountMenu').hidden && !e.target.closest('#accountMenu')) $('#accountMenu').hidden = true; });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#accountMenu').hidden = true; });
+$('#acctCopy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(account); toast('Address copied.'); } catch { toast(account); } });
+$('#acctDisconnect').addEventListener('click', () => disconnect().catch(fail));
 $('#switchNet')?.addEventListener('click', () => ensureChain(true).catch(fail));
 $('#walletsClose')?.addEventListener('click', () => $('#wallets').close());
 renderPreview();
 renderContract();
-load().catch(fail);
+restoreWallet().catch(() => undefined).finally(() => { if (!account) load().catch(fail); });

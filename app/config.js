@@ -14,4 +14,6 @@ export const CONFIG = {
   // $WIF — World is Flat (18 decimals).
   token: { address: '0x5173b8eA6923c2d40267890D45C46a3480954773', symbol: 'WIF', decimals: 18 },
   hey: 'https://heyresearch.xyz',
+  // WalletConnect (Reown) project id: a public client id, not a secret.
+  walletConnectProjectId: 'b8709ab016a2aab097cb19acc707188c',
 };
