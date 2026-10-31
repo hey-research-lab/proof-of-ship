@@ -121,13 +121,14 @@ without a prompt · bounties and stats read straight from the chain, no wallet n
 | 🛑 **A guardian that can only stop** | If HEY's signing key were ever lost, a separate cold key can retire the escrow: claims stop, every backer refunds at once. It can't move a single token anywhere else. |
 | 🧱 **No third-party script at runtime** | viem and WalletConnect are bundled into `app/vendor/`; the page sets `script-src 'self'`. |
 
-**Who HEY signs for.** Only a payout wallet its evidence ties to the project: the signer of a verified wallet-signature
-claim made for the project's **current** token, or that token's recorded deployer — never a disowned, contested or
-issuer token, never a deployer whose launch history HEY hasn't read. A renamed project's old slug keeps working.
+**Who HEY signs for.** Only a payout wallet its evidence ties to the project: the signer of a wallet-signature claim
+that proved control of the project's **current** token, or that token's recorded deployer — never a disowned, contested
+or issuer token, never a deployer whose launch history HEY hasn't read. A claim proved only as a launch's fee recipient
+ties nothing. A renamed project's old slug keeps working.
 
 **What it counts.** Ships first recorded inside the bounty window (work pushed after the deadline and dated back never
 counts), and at most one ship of each kind — a release, a contract deployment or upgrade, a code week, any other entry —
-per day.
+per day. A code week counts only once it has ended inside the window.
 
 ## The contract
 
@@ -186,7 +187,7 @@ and backers refund after the deadline. The app checks the wallet against HEY as 
 <summary><b>I'm a builder. How do I make my wallet payable?</b></summary>
 
 Claim your project's page on [heyresearch.xyz](https://heyresearch.xyz) with a wallet signature for your token, or pay
-out to the wallet that deployed your verified token.
+out to the wallet that deployed your token, once HEY reads that token as the project's own.
 </details>
 
 <details>
