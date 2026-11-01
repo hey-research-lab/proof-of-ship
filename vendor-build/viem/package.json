@@ -5,5 +5,8 @@
   "devDependencies": {
     "esbuild": "0.25.12",
     "viem": "2.21.55"
+  },
+  "overrides": {
+    "ws": "8.22.0"
   }
 }
