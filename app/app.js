@@ -54,13 +54,15 @@ const tx = (h) => `${CONFIG.explorer}/tx/${h}`;
 const addrUrl = (a) => `${CONFIG.explorer}/address/${a}`;
 /** A link or image address from HEY or the chain, only when it is https:; anything else is not rendered. */
 const httpsUrl = (url) => { try { const u = new URL(String(url)); return u.protocol === 'https:' ? u.href : null; } catch { return null; } };
+/** The first letter or digit of a name, for a monogram where a project has no logo. */
+const initial = (name) => (String(name ?? '').match(/[\p{L}\p{N}]/u)?.[0] ?? '').toUpperCase();
 const logo = (url, name) => httpsUrl(url)
-  ? `<img src="${esc(httpsUrl(url))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-logo>`
-  : `<span class="ph" aria-hidden="true" title="${esc(name)}"></span>`;
-/** A logo that fails to load becomes the placeholder: a listener, since the page's CSP refuses inline handlers. */
+  ? `<img src="${esc(httpsUrl(url))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-logo data-initial="${esc(initial(name))}">`
+  : `<span class="ph" aria-hidden="true" title="${esc(name)}">${esc(initial(name))}</span>`;
+/** A logo that fails to load becomes the monogram: a listener, since the page's CSP refuses inline handlers. */
 function wireLogos(root) {
   root.querySelectorAll('img[data-logo]').forEach((img) => {
-    const swap = () => img.replaceWith(Object.assign(document.createElement('span'), { className: 'ph' }));
+    const swap = () => img.replaceWith(Object.assign(document.createElement('span'), { className: 'ph', textContent: img.dataset.initial ?? '' }));
     if (img.complete && img.naturalWidth === 0) swap();
     else img.addEventListener('error', swap, { once: true });
   });
@@ -320,6 +322,75 @@ async function shipTitles(slug, ids) {
   return (j.items ?? []).filter((it) => want.has(it.id));
 }
 
+/**
+ * Projects HEY's search matches for what the reader typed (typo-tolerant). Only project rows, each with its exact slug
+ * read from its HEY path; anything else HEY suggests (a Stock Token, a launch record) is not a bounty target.
+ */
+async function heySuggest(q, signal) {
+  const r = await fetch(`${CONFIG.hey}/api/search/suggest?q=${encodeURIComponent(q)}`, { signal });
+  if (!r.ok) return [];
+  const j = await r.json().catch(() => ({}));
+  const out = [];
+  for (const s of Array.isArray(j.suggestions) ? j.suggestions : []) {
+    if (s?.type !== 'project') continue;
+    const slug = /^\/project\/([^/?#]+)$/.exec(String(s.target ?? ''))?.[1];
+    if (!slug || !isHeySlug(slug) || out.some((x) => x.slug === slug)) continue;
+    out.push({ slug, name: String(s.name || slug), status: typeof s.status === 'string' ? s.status : '', logoUrl: s.logoUrl ?? s.logo ?? null });
+    if (out.length === 6) break;
+  }
+  return out;
+}
+
+/**
+ * Which payout addresses HEY would sign for, from HEY's tie route. Anything but a 200 whose JSON carries `payable`
+ * (the route not deployed yet, a network error, a 400 or 404) is `null`: the form then works as it always has, a
+ * payout address typed by hand and checked against the attestation route.
+ */
+const tieCache = new Map();
+const TIE_KINDS = ['token_deployer', 'wallet_claim'];
+async function heyTie(slug) {
+  if (tieCache.has(slug)) return tieCache.get(slug);
+  let r;
+  try { r = await fetch(`${CONFIG.hey}/api/v1/proof-of-ship/tie?slug=${encodeURIComponent(slug)}`); } catch { return null; }
+  const j = r.ok ? await r.json().catch(() => null) : null;
+  let tie = null;
+  if (j && typeof j.payable === 'boolean') {
+    const byAddr = new Map();
+    for (const t of Array.isArray(j.ties) ? j.ties : []) {
+      if (!TIE_KINDS.includes(t?.kind) || !isAddress(String(t?.address ?? ''))) continue;
+      const address = getAddress(t.address);
+      const seen = byAddr.get(address);
+      if (seen) { if (!seen.kinds.includes(t.kind)) seen.kinds.push(t.kind); } else byAddr.set(address, { address, kinds: [t.kind] });
+    }
+    tie = {
+      payable: j.payable, ties: j.payable ? [...byAddr.values()] : [],
+      reason: typeof j.reason === 'string' ? j.reason : '', paused: j.attestationsPaused === true,
+    };
+  }
+  // A busy HEY (5xx) is asked again next time; a definite answer, or a route that is not there, is kept for the visit.
+  if (r.status < 500) tieCache.set(slug, tie);
+  return tie;
+}
+const TIE_WORDS = { token_deployer: 'its token deployer', wallet_claim: 'the wallet that signed the project’s claim on HEY' };
+const tieWords = (kinds) => kinds.map((k) => TIE_WORDS[k]).join(', and ');
+/** HEY's reason a project can't be paid yet, in plain words; a code HEY adds later reads as a generic sentence. */
+const TIE_REASONS = {
+  no_tie: 'HEY ties no wallet to it yet',
+  no_ties: 'HEY ties no wallet to it yet',
+  no_token: 'it has no token HEY tracks, and no wallet has signed a claim for it on HEY',
+  no_claim: 'no wallet has signed a claim for it on HEY',
+  token_not_verified: 'its own site doesn’t name the token HEY tracks, and no wallet has signed a claim for it on HEY',
+  token_withheld: 'HEY can’t stand behind its token as the project’s own',
+  site_disclaims_contract: 'its own site says the token HEY tracks is not its own',
+  token_mismatch: 'its own site names another contract than the token HEY tracks',
+  issuer_token: 'its token is issued by Robinhood, not by the project',
+  serial_launcher: 'its token was deployed by a launch service, and no wallet has signed a claim for it on HEY',
+  deployer_not_read: 'HEY hasn’t read who deployed its token yet',
+  not_published: 'it is not a published project on HEY',
+};
+const tieReason = (code) => TIE_REASONS[code]
+  ?? (/\s/.test(code) ? code.replace(/[.\s]+$/, '') : 'HEY ties no wallet to it yet');
+
 // ------------------------------------------------------------------ composer
 const form = $('#create');
 function readForm() {
@@ -365,9 +436,11 @@ const checkSlug = debounce(async () => {
   const { slug } = readForm();
   const hint = $('#slugHint'), card = $('#projectCard');
   hint.className = 'hint';
+  if (slug !== tieState.slug) setTie(null, null);
   if (!slug) { hint.innerHTML = 'The slug in heyresearch.xyz/project/<span class="mono">slug</span>'; card.className = 'project'; renderPreview(); return; }
   if (!isHeySlug(slug)) { hint.className = 'hint bad'; hint.textContent = SLUG_FORM_MESSAGE; card.className = 'project'; renderPreview(); return; }
   const p = await heyProject(slug).catch(() => undefined);
+  if (readForm().slug !== slug) return;
   if (p === null) { hint.className = 'hint bad'; hint.textContent = 'Not a published project on HEY.'; card.className = 'project'; }
   else if (p) {
     hint.className = 'hint ok'; hint.textContent = 'Found on HEY.';
@@ -375,10 +448,60 @@ const checkSlug = debounce(async () => {
     card.innerHTML = `${logo(p.logoUrl, p.name)}<div><b>${esc(p.name)}</b><span>${esc(String(p.activityStatus ?? '').toLowerCase().replace('_', ' '))} · ${last}</span></div>`;
     wireLogos(card);
     card.className = 'project on';
+    heyTie(slug).then((t) => { if (readForm().slug === slug) setTie(slug, t); }).catch(() => undefined);
   }
   renderPreview();
   checkBuilder();
 }, 350);
+
+/*
+ * The payout tie HEY reports for the project in the field. With exactly one address it fills the payout field (only
+ * when the reader hasn't typed one); with two it offers both; with none it says plainly what a bounty opened now can
+ * and can't do. The attestation check on the payout field and on Open stays the gate either way.
+ */
+let tieState = { slug: null, tie: null };
+let autofilled = null; // the payout address this page wrote, so a later project may replace it and a typed one never is
+function writeBuilder(address) {
+  const el = $('#builder');
+  el.value = address;
+  autofilled = address;
+  checkBuilder();
+  renderPreview();
+}
+function setTie(slug, tie) {
+  tieState = { slug, tie };
+  const el = $('#builder');
+  const mine = el.value.trim() === '' || el.value === autofilled;
+  if (tie && mine) {
+    if (tie.ties.length === 1) { if (el.value !== tie.ties[0].address) writeBuilder(tie.ties[0].address); }
+    else if (autofilled && el.value === autofilled && !tie.ties.some((t) => t.address === autofilled)) writeBuilder('');
+  } else if (!tie && slug === null && autofilled && el.value === autofilled) {
+    writeBuilder('');
+  }
+  renderTie();
+}
+function renderTie() {
+  const box = $('#tieBox');
+  const { tie } = tieState;
+  if (!tie) { box.innerHTML = ''; return; }
+  const typed = readForm().builder;
+  const parts = [];
+  if (tie.paused) parts.push('<p class="note">HEY has paused signing for now. No bounty can be released until it resumes; refunds after the deadline don’t need HEY.</p>');
+  if (!tie.payable || !tie.ties.length) {
+    parts.push(`<p class="bad">HEY can’t pay this project yet: ${esc(tieReason(tie.reason))}. A bounty you open now can only be refunded after its deadline.</p>`);
+  } else if (tie.ties.length === 1) {
+    const t = tie.ties[0];
+    parts.push(`<p class="ok">HEY will pay this address: ${esc(tieWords(t.kinds))}.</p>`);
+  } else {
+    parts.push('<p>HEY ties two addresses to this project. Choose the one to pay:</p>');
+    parts.push(`<div class="choices">${tie.ties.map((t) => `<button type="button" data-tie="${esc(t.address)}" aria-pressed="${Boolean(typed) && sameHash(typed, t.address)}"><span>${esc(tieWords(t.kinds).replace(/^./, (c) => c.toUpperCase()))}</span><span class="mono">${esc(t.address)}</span></button>`).join('')}</div>`);
+  }
+  if (tie.payable && tie.ties.length && isAddress(typed) && !tie.ties.some((t) => sameHash(t.address, typed))) {
+    parts.push(`<p class="bad">HEY will not sign for ${esc(short(typed))}: it isn’t an address HEY ties to this project.</p>`);
+  }
+  box.innerHTML = parts.join('');
+  box.querySelectorAll('[data-tie]').forEach((b) => b.addEventListener('click', () => { writeBuilder(b.dataset.tie); renderTie(); }));
+}
 const checkBuilder = debounce(async () => {
   const { slug, builder } = readForm();
   const hint = $('#builderHint');
@@ -416,9 +539,115 @@ form.addEventListener('click', (e) => {
 });
 form.addEventListener('input', (e) => {
   if (e.target.name === 'slug') checkSlug();
-  else if (e.target.name === 'builder') checkBuilder();
+  else if (e.target.name === 'builder') { checkBuilder(); renderTie(); }
   renderPreview();
 });
+
+// ------------------------------------------------------------------ time to ship: 7 / 14 / 30 days or custom
+// The presets only write the `days` field; readForm and the 1–365 checks read it exactly as before.
+const daysInput = $('#days');
+const presetButtons = [...document.querySelectorAll('#daysPresets [data-days]')];
+function pressPreset(which) { presetButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.days === which))); }
+presetButtons.forEach((b) => b.addEventListener('click', () => {
+  const custom = b.dataset.days === 'custom';
+  pressPreset(b.dataset.days);
+  $('#daysCustom').hidden = !custom;
+  if (custom) { daysInput.focus(); daysInput.select(); } else daysInput.value = b.dataset.days;
+  renderPreview();
+}));
+// A value the browser restored into the field (back/forward) picks its preset, or shows the custom box.
+{
+  const v = String(Math.floor(Number(daysInput.value) || 0));
+  const match = presetButtons.find((b) => b.dataset.days === v);
+  pressPreset(match ? v : 'custom');
+  $('#daysCustom').hidden = Boolean(match);
+}
+
+// ------------------------------------------------------------------ project autocomplete (ARIA combobox)
+/*
+ * Suggestions come from HEY's public search. Picking one writes its exact HEY slug; what the reader types by hand is
+ * never rewritten, because the escrow keys a bounty on those exact bytes.
+ */
+const slugInput = $('#slug');
+const slugList = $('#slugList');
+let acItems = [], acActive = -1, acAbort = null, acSeq = 0;
+let acDismissed = null; // the text the reader closed the list on (Escape or a pick): a search still pending for it stays closed
+function acClose() {
+  slugList.hidden = true;
+  slugList.innerHTML = '';
+  acItems = []; acActive = -1;
+  slugInput.setAttribute('aria-expanded', 'false');
+  slugInput.removeAttribute('aria-activedescendant');
+}
+const payChip = (slug) => {
+  if (!tieCache.has(slug) || !tieCache.get(slug)) return ['', ''];
+  return tieCache.get(slug).payable ? ['ok', 'can be paid'] : ['no', 'not payable yet'];
+};
+function acRender() {
+  slugList.innerHTML = acItems.map((it, i) => {
+    const [cls, word] = payChip(it.slug);
+    return `<li role="option" id="slugOpt${i}" data-i="${i}" aria-selected="${i === acActive}">${logo(it.logoUrl, it.name)}<span class="txt"><span class="nm"><b>${esc(it.name)}</b><span class="pay ${cls}">${word}</span></span><span class="sl">${esc(it.slug)}</span>${it.status ? `<span class="st">${esc(it.status)}</span>` : ''}</span></li>`;
+  }).join('');
+  wireLogos(slugList);
+  slugList.hidden = !acItems.length;
+  slugInput.setAttribute('aria-expanded', String(acItems.length > 0));
+  if (acActive >= 0) slugInput.setAttribute('aria-activedescendant', `slugOpt${acActive}`); else slugInput.removeAttribute('aria-activedescendant');
+}
+// The "can be paid" chip is asked of HEY only for the highlighted project, once per slug, and never holds up typing.
+const acChip = debounce(async (slug) => {
+  if (tieCache.has(slug)) return;
+  await heyTie(slug).catch(() => null);
+  const i = acItems.findIndex((it) => it.slug === slug);
+  const li = i >= 0 ? slugList.querySelector(`[data-i="${i}"] .pay`) : null;
+  if (li) { const [cls, word] = payChip(slug); li.className = `pay ${cls}`; li.textContent = word; }
+}, 150);
+function acHighlight(i) {
+  acActive = i;
+  slugList.querySelectorAll('[role="option"]').forEach((li) => li.setAttribute('aria-selected', String(Number(li.dataset.i) === i)));
+  if (i >= 0) {
+    slugInput.setAttribute('aria-activedescendant', `slugOpt${i}`);
+    slugList.querySelector(`[data-i="${i}"]`)?.scrollIntoView({ block: 'nearest' });
+    acChip(acItems[i].slug);
+  } else slugInput.removeAttribute('aria-activedescendant');
+}
+function acPick(i) {
+  const it = acItems[i];
+  if (!it) return;
+  slugInput.value = it.slug;
+  acDismissed = it.slug;
+  acClose();
+  checkSlug();
+  renderPreview();
+}
+const acSearch = debounce(async () => {
+  const q = slugInput.value.trim();
+  const seq = ++acSeq;
+  acAbort?.abort();
+  if (q.length < 2 || document.activeElement !== slugInput || slugInput.value === acDismissed) { acClose(); return; }
+  acAbort = new AbortController();
+  const items = await heySuggest(q, acAbort.signal).catch(() => null);
+  if (seq !== acSeq || items === null || document.activeElement !== slugInput || slugInput.value === acDismissed) return;
+  acItems = items; acActive = -1;
+  acRender();
+}, 200);
+slugInput.addEventListener('input', acSearch);
+slugInput.addEventListener('keydown', (e) => {
+  if (slugList.hidden) {
+    if (e.key === 'Escape') acDismissed = slugInput.value;
+    else if (e.key === 'ArrowDown' && slugInput.value.trim().length >= 2) { e.preventDefault(); acDismissed = null; acSearch(); }
+    return;
+  }
+  if (e.key === 'ArrowDown') { e.preventDefault(); acHighlight((acActive + 1) % acItems.length); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); acHighlight(acActive <= 0 ? acItems.length - 1 : acActive - 1); }
+  else if (e.key === 'Enter' && acActive >= 0) { e.preventDefault(); acPick(acActive); }
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); acDismissed = slugInput.value; acClose(); }
+  else if (e.key === 'Tab') acClose();
+});
+slugInput.addEventListener('blur', () => { acSeq++; acAbort?.abort(); acClose(); });
+// mousedown keeps the focus in the field, so the blur above doesn't close the list before the click lands.
+slugList.addEventListener('mousedown', (e) => e.preventDefault());
+slugList.addEventListener('click', (e) => { const li = e.target.closest('[role="option"]'); if (li) acPick(Number(li.dataset.i)); });
+slugList.addEventListener('mousemove', (e) => { const li = e.target.closest('[role="option"]'); if (li && Number(li.dataset.i) !== acActive) acHighlight(Number(li.dataset.i)); });
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -627,6 +856,8 @@ function renderBounty({ id, b, slug }, hey) {
   if (met && inWindow && !blocked) actions.push(`<button class="go" data-act="claim" data-id="${id}">Release to builder</button>`);
   if (!pending && !blocked && !b.paid && now() < Number(b.deadline)) actions.push(`<button data-act="fund" data-id="${id}">Add ${T.symbol}</button><span class="fund-box" data-fund-box="${id}" hidden><input type="number" inputmode="decimal" min="0" step="any" placeholder="1000" aria-label="${T.symbol} to add"><button class="go" data-act="fund" data-id="${id}">Add</button></span>`);
   if (!b.paid && now() > graceEnd && mine > 0n) actions.push(`<button data-act="refund" data-id="${id}">Take back ${fmt(mine)} ${T.symbol}</button>`);
+  const share = slugOk ? shareText({ b, name: project?.name ?? slug, open: !b.paid && !blocked && now() <= Number(b.deadline) }) : null;
+  if (share) actions.push(`<a class="share" href="${esc(`https://x.com/intent/post?text=${encodeURIComponent(share)}`)}" target="_blank" rel="noopener">Share on X</a>`);
   const list = signed ? countedShips(att, ships) : '';
   const progressLabel = b.paid ? 'Released' : have === null ? 'Ships HEY counted' : `${have} of ${need} ships counted`;
   const where = slugOk
@@ -650,6 +881,20 @@ function renderBounty({ id, b, slug }, hey) {
     ${note ? `<p class="hint bad" style="margin:0">${esc(note)}</p>` : list || (b.paid || pending ? '' : '<p class="hint" style="margin:0">No counted ships since the bounty opened yet.</p>')}
     <div class="actions">${actions.join('')}<span class="mono">#${id} · opened ${day(b.start)}${mine > 0n ? ` · you locked ${fmt(mine)} ${T.symbol}` : ''}</span></div>
   </article>`;
+}
+
+/** A factual post for X about one bounty: open (what it pays and when) or paid (what the builder received). */
+const PAGE_LINK = 'hey-research-lab.github.io/proof-of-ship';
+const dayMonth = (s) => new Date(Number(s) * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+function shareText({ b, name, open }) {
+  const need = Number(b.minShips);
+  const ships = `${need} ship${need === 1 ? '' : 's'}`;
+  if (b.paid) {
+    const paid = b.total - (b.total * BigInt(b.burnBps)) / 10_000n;
+    return `${name} shipped and claimed ${fmt(paid)} $${T.symbol} from a Proof of Ship bounty, released when Hey Research Lab counted ${ships}. ${PAGE_LINK}`;
+  }
+  if (!open) return null;
+  return `${fmt(b.total)} $${T.symbol} for ${name}, released only when Hey Research Lab counts ${ships} by ${dayMonth(b.deadline)}. If they don't ship, the backers take it back. ${PAGE_LINK}`;
 }
 
 async function act(kind, id) {

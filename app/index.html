@@ -110,6 +110,42 @@ form.card{padding:22px}
 .project img,.project .ph{width:30px;height:30px;border-radius:8px;flex:none;object-fit:cover;background:var(--line)}
 .project b{font-size:14.5px;display:block;line-height:1.2}
 .project span{font-size:12.5px;color:var(--mut)}
+.ph{display:inline-grid;place-items:center;font-size:13px;font-weight:650;color:var(--sec);text-transform:uppercase;line-height:1}
+.bounty .id .ph{font-size:16px}
+.input[hidden]{display:none}
+
+/* project autocomplete */
+.ac{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:15;margin:0;padding:6px;list-style:none;background:var(--surface);border:1px solid var(--line2);border-radius:12px;box-shadow:0 20px 50px -18px rgba(0,0,0,.45);max-height:min(392px,62vh);overflow-y:auto;overscroll-behavior:contain}
+.ac[hidden]{display:none}
+.ac li{display:flex;align-items:center;gap:10px;padding:8px;border-radius:9px;cursor:pointer;min-width:0}
+.ac li[aria-selected="true"]{background:var(--bg2);box-shadow:inset 0 0 0 2px var(--acc)}
+.ac img,.ac .ph{width:30px;height:30px;border-radius:8px;flex:none;object-fit:cover;background:var(--line)}
+.ac .txt{display:grid;min-width:0;flex:1;line-height:1.3}
+.ac .nm{display:flex;align-items:center;gap:8px;min-width:0}
+.ac b{font-size:14.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac .sl{font-family:var(--mono);font-size:12px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac .st{font-size:12px;color:var(--sec);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac .pay{flex:none;font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:999px;margin-left:auto}
+.ac .pay:empty{display:none}
+.ac .pay.ok{color:var(--acc);background:var(--accSoft)}
+.ac .pay.no{color:var(--amber);background:var(--amberSoft)}
+
+/* payout tie */
+.tie{display:grid;gap:8px;margin-top:12px}
+.tie:empty{display:none}
+.tie p{margin:0;font-size:13.5px;line-height:1.45}
+.tie .ok{color:var(--acc)}.tie .bad{color:var(--red)}.tie .warn{color:var(--amber)}
+.tie .note{border-radius:11px;padding:10px 12px;background:var(--amberSoft);color:var(--amber)}
+.tie .choices{display:grid;gap:6px}
+.tie .choices button{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 10px;text-align:left;font-size:13.5px;font-weight:500;padding:10px 12px;background:var(--bg2)}
+.tie .choices button .mono{font-size:12.5px;overflow-wrap:anywhere}
+.tie .choices button[aria-pressed="true"]{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+
+/* time-to-ship presets */
+.seg{display:flex;gap:4px;padding:4px;border:1px solid var(--line2);border-radius:11px;background:var(--field)}
+.seg button{flex:1;min-width:0;padding:9px 4px;font-size:14px;font-weight:550;border:0;border-radius:8px;background:none;color:var(--sec);white-space:nowrap}
+.seg button:hover{background:var(--bg2);color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 
 /* preview */
 .preview{position:sticky;top:16px;padding:20px}
@@ -151,6 +187,8 @@ form.card{padding:22px}
 .ships a{color:var(--mut);font-size:13px}
 .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .actions .mono{font-size:12.5px;color:var(--mut);margin-left:auto}
+a.share{display:inline-flex;align-items:center;font-weight:600;font-size:15px;line-height:1;border-radius:11px;padding:12px 16px;border:1px solid var(--line2);background:var(--surface);color:var(--ink);text-decoration:none}
+a.share:hover{border-color:var(--ink)}
 .empty{border:1px dashed var(--line2);border-radius:var(--r);padding:28px;text-align:center;color:var(--mut);font-size:15px}
 .skel{height:180px;border-radius:var(--r);background:linear-gradient(90deg,var(--surface),var(--bg2),var(--surface));background-size:200% 100%;animation:sk 1.4s ease infinite;border:1px solid var(--line)}
 @keyframes sk{to{background-position:-200% 0}}
@@ -269,7 +307,7 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
           <div class="grid2">
             <div class="f">
               <label for="slug">Project on HEY</label>
-              <div class="input"><input id="slug" name="slug" placeholder="e.g. my-project" autocomplete="off" spellcheck="false" required></div>
+              <div class="input"><input id="slug" name="slug" placeholder="Search a project or type its slug" autocomplete="off" autocapitalize="none" spellcheck="false" required role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="slugList" aria-describedby="slugHint"><ul id="slugList" class="ac" role="listbox" aria-label="Projects on HEY" hidden></ul></div>
               <div class="hint" id="slugHint">The slug in heyresearch.xyz/project/<span class="mono">slug</span></div>
             </div>
             <div class="f">
@@ -279,6 +317,7 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
             </div>
           </div>
           <div class="project" id="projectCard" style="margin-top:12px"></div>
+          <div class="tie" id="tieBox" aria-live="polite"></div>
         </div>
         <div class="group">
           <div class="legend">Terms</div>
@@ -289,8 +328,14 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
               <div class="hint">Counted by HEY after the bounty opens.</div>
             </div>
             <div class="f">
-              <label for="days">Time to ship</label>
-              <div class="input"><input id="days" name="days" class="has-unit" type="number" inputmode="numeric" min="1" max="365" value="14" required><span class="unit">days</span></div>
+              <label for="days" id="daysLabel">Time to ship</label>
+              <div class="seg" role="group" aria-labelledby="daysLabel" id="daysPresets">
+                <button type="button" data-days="7" aria-pressed="false">7 days</button>
+                <button type="button" data-days="14" aria-pressed="true">14 days</button>
+                <button type="button" data-days="30" aria-pressed="false">30 days</button>
+                <button type="button" data-days="custom" aria-pressed="false">Custom</button>
+              </div>
+              <div class="input" id="daysCustom" hidden><input id="days" name="days" class="has-unit" type="number" inputmode="numeric" min="1" max="365" value="14" required aria-label="Days to ship, 1 to 365"><span class="unit">days</span></div>
               <div class="hint" id="daysHint"></div>
             </div>
             <div class="f">
@@ -350,6 +395,6 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
   <div id="walletList" class="wallet-list"></div>
   <p class="fine">Robinhood Chain (4663) is added to your wallet if it isn't there yet. Reading bounties needs no wallet.</p>
 </dialog>
-<script type="module" src="./app.js?v=9"></script>
+<script type="module" src="./app.js?v=10"></script>
 </body>
 </html>

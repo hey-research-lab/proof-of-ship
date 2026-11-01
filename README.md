@@ -99,6 +99,12 @@ sequenceDiagram
 prompt on the wrong network · an account menu with copy, explorer and disconnect · the last wallet comes back on reload
 without a prompt · bounties and stats read straight from the chain, no wallet needed to look.
 
+**Opening a bounty:** the project field searches HEY as you type (keyboard and screen-reader friendly) and writes the
+project's exact slug when you pick one; a slug typed by hand is used exactly as typed. HEY's payout tie fills in the
+payout wallet when HEY ties one address to the project, offers the choice when it ties two, and says plainly when it
+ties none (such a bounty can only be refunded after its deadline). Time to ship is 7, 14 or 30 days, or any 1–365.
+Every bounty card has a *Share on X* link with a factual post.
+
 ## Live on Robinhood Chain
 
 | | Robinhood Chain (4663) |
