@@ -375,18 +375,14 @@ const TIE_WORDS = { token_deployer: 'its token deployer', wallet_claim: 'the wal
 const tieWords = (kinds) => kinds.map((k) => TIE_WORDS[k]).join(', and ');
 /** HEY's reason a project can't be paid yet, in plain words; a code HEY adds later reads as a generic sentence. */
 const TIE_REASONS = {
-  no_tie: 'HEY ties no wallet to it yet',
-  no_ties: 'HEY ties no wallet to it yet',
-  no_token: 'it has no token HEY tracks, and no wallet has signed a claim for it on HEY',
-  no_claim: 'no wallet has signed a claim for it on HEY',
-  token_not_verified: 'its own site doesn’t name the token HEY tracks, and no wallet has signed a claim for it on HEY',
-  token_withheld: 'HEY can’t stand behind its token as the project’s own',
-  site_disclaims_contract: 'its own site says the token HEY tracks is not its own',
-  token_mismatch: 'its own site names another contract than the token HEY tracks',
+  // The codes HEY's tie route answers (GET /api/v1/proof-of-ship/tie, 2026-11-02), first failed condition first.
+  no_token: 'it has no token HEY tracks, so no deployer or claim can be tied to it',
+  token_not_verified: 'the project hasn’t confirmed the token HEY tracks as its own yet',
   issuer_token: 'its token is issued by Robinhood, not by the project',
-  serial_launcher: 'its token was deployed by a launch service, and no wallet has signed a claim for it on HEY',
-  deployer_not_read: 'HEY hasn’t read who deployed its token yet',
-  not_published: 'it is not a published project on HEY',
+  site_disclaims_contract: 'its own site says the token HEY tracks is not its own',
+  site_names_another_contract: 'its own site names another contract than the token HEY tracks',
+  contested: 'another page on HEY claims the same token',
+  no_tie: 'HEY ties no wallet to it yet: the deployer is a shared launch service or not read, and no wallet has signed a claim for it',
 };
 const tieReason = (code) => TIE_REASONS[code]
   ?? (/\s/.test(code) ? code.replace(/[.\s]+$/, '') : 'HEY ties no wallet to it yet');
