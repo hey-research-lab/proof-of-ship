@@ -5,5 +5,8 @@
   "devDependencies": {
     "@walletconnect/ethereum-provider": "2.26.0",
     "esbuild": "0.25.12"
+  },
+  "overrides": {
+    "follow-redirects": "1.16.2"
   }
 }
