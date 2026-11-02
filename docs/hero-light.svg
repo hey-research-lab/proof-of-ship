@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-label="Proof of Ship. Back a Robinhood Chain builder with $WIF. It pays out only when they ship.">
+<defs>
+<pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.1" fill="#C5CBD3"/></pattern>
+<linearGradient id="fade" x1="0" y1="0" x2="1" y2="0"><stop offset="0.38" stop-color="#F5F6F8"/><stop offset="1" stop-color="#F5F6F8" stop-opacity="0"/></linearGradient>
+<clipPath id="win"><rect x="988" y="198" width="34" height="54"/></clipPath>
+</defs>
+<style>.s{transform-box:fill-box;transform-origin:center;animation:pop .35s cubic-bezier(.2,.9,.3,1.3) both}@keyframes pop{from{opacity:0;transform:scale(.6)}}.roll{animation:roll 2.4s steps(3,end) 0.5s both}@keyframes roll{from{transform:translateY(162px)}}.done{animation:in .5s ease-out 3.15s both}@keyframes in{from{opacity:0;transform:translateY(6px)}}.up{animation:in .7s ease-out both}.p{animation:pulse 2.4s ease-in-out infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}@media (prefers-reduced-motion: reduce){*{animation:none!important}}</style>
+<rect width="1200" height="420" rx="14" fill="#F5F6F8"/>
+<rect x="560" width="640" height="420" rx="14" fill="url(#dots)" opacity=".7"/>
+<rect x="560" width="420" height="420" fill="url(#fade)"/>
+<g class="up">
+<text x="56" y="78" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13" letter-spacing="2" fill="#4F7A00">ROBINHOOD CHAIN · $WIF · HEY RESEARCH LAB</text>
+<text x="52" y="168" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="76" font-weight="750" letter-spacing="-2.5" fill="#0B0E11">Proof of Ship<tspan fill="#4F7A00">.</tspan></text>
+<text x="56" y="222" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" fill="#535B66">Back a Robinhood Chain builder with $WIF.</text>
+<text x="56" y="258" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="600" fill="#0B0E11">It pays out only when they ship.</text>
+<rect x="56" y="314" width="107" height="34" rx="17" fill="#FFFFFF" stroke="#DDE1E7"/><circle cx="72" cy="331" r="3.5" fill="#4F7A00"/><text x="83" y="336" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13" fill="#535B66">No owner</text><rect x="173" y="314" width="208" height="34" rx="17" fill="#FFFFFF" stroke="#DDE1E7"/><circle cx="189" cy="331" r="3.5" fill="#4F7A00"/><text x="200" y="336" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13" fill="#535B66">HEY counts the ships</text><rect x="391" y="314" width="258" height="34" rx="17" fill="#FFFFFF" stroke="#DDE1E7"/><circle cx="407" cy="331" r="3.5" fill="#4F7A00"/><text x="418" y="336" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13" fill="#535B66">Refunds after the deadline</text>
+</g>
+<rect x="756" y="58" width="396" height="304" rx="16" fill="#FFFFFF" stroke="#DDE1E7"/>
+<circle class="p" cx="786" cy="95" r="4" fill="#4F7A00"/>
+<text x="798" y="100" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" letter-spacing="1.5" fill="#535B66">BOUNTY</text>
+<text x="1126" y="100" text-anchor="end" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" fill="#535B66">ShipEscrow</text>
+<text x="782" y="150" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="44" font-weight="750" letter-spacing="-1" fill="#0B0E11">5,000 <tspan font-size="19" font-weight="500" fill="#535B66" letter-spacing="0">WIF</tspan></text>
+<text x="782" y="182" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#535B66">Ships HEY counted</text>
+<rect x="782.75" y="198.75" width="52.5" height="52.5" rx="10" fill="#F5F6F8" stroke="#C5CBD3" stroke-width="1.5" stroke-dasharray="4 4"/>
+<g class="s" style="animation-delay:1.00s"><rect x="782" y="198" width="54" height="54" rx="10" fill="#4F7A00"/><path d="M798 226 l8 8 l15 -18" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>
+<rect x="848.75" y="198.75" width="52.5" height="52.5" rx="10" fill="#F5F6F8" stroke="#C5CBD3" stroke-width="1.5" stroke-dasharray="4 4"/>
+<g class="s" style="animation-delay:1.80s"><rect x="848" y="198" width="54" height="54" rx="10" fill="#4F7A00"/><path d="M864 226 l8 8 l15 -18" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>
+<rect x="914.75" y="198.75" width="52.5" height="52.5" rx="10" fill="#F5F6F8" stroke="#C5CBD3" stroke-width="1.5" stroke-dasharray="4 4"/>
+<g class="s" style="animation-delay:2.60s"><rect x="914" y="198" width="54" height="54" rx="10" fill="#4F7A00"/><path d="M930 226 l8 8 l15 -18" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g clip-path="url(#win)"><g class="roll"><text x="992" y="77" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="40" font-weight="700" fill="#0B0E11">0</text><text x="992" y="131" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="40" font-weight="700" fill="#0B0E11">1</text><text x="992" y="185" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="40" font-weight="700" fill="#0B0E11">2</text><text x="992" y="239" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="40" font-weight="700" fill="#0B0E11">3</text></g></g>
+<text x="1026" y="239" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="40" font-weight="400" fill="#535B66">/ 3</text>
+<g class="done">
+<rect x="782" y="274" width="344" height="38" rx="10" fill="rgba(79,122,0,0.14)"/>
+<path d="M798 293 l5 5 l10 -11" fill="none" stroke="#4F7A00" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="822" y="298" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="650" fill="#4F7A00">Target met. Released to the builder.</text>
+</g>
+<text x="782" y="340" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#535B66">No ships by the deadline? Every backer takes it back.</text>
+<text x="56" y="390" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" fill="#535B66">hey-research-lab.github.io/proof-of-ship</text>
+</svg>

@@ -1,0 +1,35 @@
+# Redraws the README's stats card and bounties table once a day from the escrow's own events on Robinhood Chain.
+# Public RPC only, no key. A failed or inconsistent read writes nothing, so the last good figures stay.
+name: Stats
+
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: readme-stats
+  cancel-in-progress: false
+
+jobs:
+  stats:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+      - name: Read the chain and redraw
+        run: node --no-warnings scripts/stats.mjs
+      - name: Commit when something moved
+        run: |
+          if git diff --quiet; then echo "nothing moved"; exit 0; fi
+          git config user.name "HEY Research Lab"
+          git config user.email "327801004+hey-research-lab@users.noreply.github.com"
+          git add README.md docs/stats-light.svg docs/stats-dark.svg docs/hero-light.svg docs/hero-dark.svg docs/flow-light.svg docs/flow-dark.svg
+          git commit -m "Stats: redraw from Robinhood Chain"
+          git push
