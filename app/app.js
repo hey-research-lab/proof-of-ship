@@ -75,6 +75,7 @@ const sameHash = (a, b) => typeof a === 'string' && typeof b === 'string' && a.t
 const bountySlugOk = (slug, project) => isHeySlug(slug) && sameHash(keccak256(stringToBytes(slug)), project);
 const SLUG_FORM_MESSAGE = 'Use the project’s HEY slug exactly as in heyresearch.xyz/project/slug: lower-case letters, digits and hyphens, no spaces. A bounty opened with any other slug can never be released.';
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 // ------------------------------------------------------------------ wallet
 // ------------------------------------------------------------------ wallet discovery (EIP-6963 + injected fallback)
@@ -172,7 +173,7 @@ function renderAccount() {
   const on = Boolean(account);
   $('#connect').hidden = on;
   $('#account').hidden = !on;
-  if (!on) { $('#accountMenu').hidden = true; return; }
+  if (!on) { $('#accountMenu').hidden = true; renderBanner(); return; }
   const icon = walletInfo?.icon ? `<img src="${esc(walletInfo.icon)}" alt="" width="18" height="18">` : '<span class="dot"></span>';
   $('#account').innerHTML = `${icon}<span>${short(account)}</span>${heldWif !== null ? `<span class="muted">${compact(heldWif)} ${T.symbol}</span>` : ''}`;
   $('#acctWallet').textContent = walletInfo?.name ?? 'Wallet';
@@ -702,9 +703,11 @@ async function load() {
     return;
   }
   listing?.observer?.disconnect();
-  listing = { count, next: count - 1, shown: 0, unfunded: 0, paid: 0n, burned: 0n, open: 0, observer: null };
+  listing = { count, next: count - 1, shown: 0, unfunded: 0, paid: 0n, burned: 0n, open: 0, observer: null, rows: [], atts: new Map() };
   box.innerHTML = '';
   await more();
+  // A #bounty-<id> link scrolls to its card once per visit; a later reload of the list (after an action) does not.
+  if (!deepLinked && hashBounty() !== null) { deepLinked = true; goToBounty(hashBounty()).catch(() => undefined); }
 }
 
 async function more() {
@@ -728,6 +731,7 @@ async function more() {
   const slugs = await Promise.all(funded.map(({ id }) => pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'slugOf', args: [BigInt(id)] })));
   const rows = funded.map((row, i) => ({ ...row, slug: slugs[i] }));
   l.shown += rows.length;
+  l.rows.push(...rows);
 
   // The totals are over every bounty only once every bounty has been read.
   const all = l.next < 0;
@@ -760,11 +764,104 @@ async function more() {
     btn.addEventListener('click', () => { btn.disabled = true; more().catch(fail); });
     box.append(btn);
   }
+  renderBanner();
 }
 
 function wireCard(card) {
   card.querySelectorAll('[data-act]').forEach((el) => el.addEventListener('click', () => act(el.dataset.act, Number(el.dataset.id)).catch(fail)));
+  card.querySelectorAll('[data-copy-link]').forEach((el) => el.addEventListener('click', () => copyLink(el)));
   wireLogos(card);
+}
+
+/** Copy a bounty's link; where the clipboard is refused, show the link selected so the reader can copy it. */
+async function copyLink(btn) {
+  const url = bountyUrl(Number(btn.dataset.copyLink));
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Link copied.');
+  } catch {
+    const box = btn.parentElement.querySelector('.linkbox');
+    if (!box) { toast(esc(url)); return; }
+    box.hidden = false;
+    box.value = url;
+    box.focus();
+    box.select();
+    toast('Select and copy the link.');
+  }
+}
+
+/** HEY's signed count for one bounty, asked once per read of the list (the card and the builder banner share it). */
+function attFor({ id, b, slug }) {
+  const until = Math.min(now() - 120, Number(b.deadline));
+  if (!bountySlugOk(slug, b.project) || b.paid || until < Number(b.start)) return Promise.resolve(null);
+  const cache = listing?.atts;
+  if (cache?.has(id)) return cache.get(id);
+  const p = heyAttestation(slug, b.builder, Number(b.start), until).catch(() => null);
+  cache?.set(id, p);
+  return p;
+}
+/** The ships HEY signed for, only when the answer is for this bounty's project; otherwise null (not read, never 0). */
+const signedShips = (att, b) => (att?.ok && sameHash(att.body.attestation?.project, b.project) ? Number(att.body.attestation.ships) : null);
+
+// ------------------------------------------------------------------ deep links (#bounty-<id>)
+let deepLinked = false;
+const hashBounty = () => { const m = /^#bounty-(\d{1,9})$/.exec(location.hash); return m ? Number(m[1]) : null; };
+/** Scroll to a bounty's card and mark it for a moment; reads further pages of the list (a few at most) to find it. */
+async function goToBounty(id, { release = false } = {}) {
+  let card = document.getElementById(`bounty-${id}`);
+  for (let i = 0; !card && listing && listing.next >= 0 && i < 5; i++) { await more(); card = document.getElementById(`bounty-${id}`); }
+  if (!card) return false;
+  if (card.dataset.pending) {
+    listing?.observer?.unobserve(card);
+    await hydrate(card).catch(() => undefined);
+    card = document.getElementById(`bounty-${id}`) ?? card;
+  }
+  card.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' });
+  card.classList.add('hl');
+  setTimeout(() => document.getElementById(`bounty-${id}`)?.classList.remove('hl'), 2400);
+  if (release) card.querySelector('[data-act="claim"]')?.focus({ preventScroll: true });
+  return true;
+}
+window.addEventListener('hashchange', () => { const id = hashBounty(); if (id !== null) goToBounty(id).catch(() => undefined); });
+
+// ------------------------------------------------------------------ builder banner
+/*
+ * When the connected wallet is the payout address of an open bounty, say so at the top: what it pays, HEY's signed
+ * count of the target, and the deadline. A bounty whose target is met says it can be released now and points at the
+ * Release button. Read only: nothing here signs or sends.
+ */
+let bannerSeq = 0;
+async function renderBanner() {
+  const el = $('#builderBanner');
+  const seq = ++bannerSeq;
+  const mineRows = account && listing
+    ? listing.rows.filter(({ b, slug }) => !b.paid && b.total > 0n && now() <= Number(b.deadline) + GRACE && sameHash(b.builder, account) && bountySlugOk(slug, b.project))
+    : [];
+  if (!mineRows.length) { el.hidden = true; el.innerHTML = ''; return; }
+  const items = (await Promise.all(mineRows.map(async (row) => {
+    const [project, att] = await Promise.all([heyProject(row.slug).catch(() => null), attFor(row)]);
+    if (att && !att.ok && (att.status === 403 || att.status === 404)) return null; // HEY will never sign it: no claim to make
+    const have = signedShips(att, row.b);
+    const met = have !== null && have >= Number(row.b.minShips);
+    if (!met && now() > Number(row.b.deadline)) return null; // past the deadline unmet: it can no longer be released
+    return { row, name: project?.name ?? row.slug, have, met };
+  }))).filter(Boolean);
+  if (seq !== bannerSeq) return;
+  if (!items.length) { el.hidden = true; el.innerHTML = ''; return; }
+  const lines = items.map(({ row: { id, b }, name, have, met }) => {
+    const need = Number(b.minShips);
+    const count = have === null ? `ship count not read yet · target ${need}` : `${have} of ${need} ships counted`;
+    const facts = `${fmt(b.total)} ${T.symbol} for ${esc(name)} · ${count} · ship by ${day(b.deadline)}`;
+    const ready = met ? '<p class="ok">Target met: it can be released now with <b>Release to builder</b> on the bounty. Anyone can press it, and the $WIF goes to your wallet.</p>' : '';
+    return `<div class="banner-row"><div><p>${facts}</p>${ready}</div><a class="${met ? 'go-link' : 'share'}" href="#bounty-${id}" data-goto="${id}"${met ? ' data-release="1"' : ''}>${met ? `Go to Release on #${id}` : `See bounty #${id}`}</a></div>`;
+  });
+  el.innerHTML = `<h2>${items.length === 1 ? 'A bounty is waiting for your ships' : `${items.length} bounties are waiting for your ships`}</h2>${lines.join('')}`;
+  el.hidden = false;
+  el.querySelectorAll('[data-goto]').forEach((a) => a.addEventListener('click', (e) => {
+    e.preventDefault();
+    history.replaceState(null, '', `#bounty-${a.dataset.goto}`);
+    goToBounty(Number(a.dataset.goto), { release: a.dataset.release === '1' }).catch(() => undefined);
+  }));
 }
 
 /** Ask HEY about one bounty (its project, its signed count and the ships behind it) and redraw its card. */
@@ -772,17 +869,17 @@ async function hydrate(card) {
   const row = card.__row;
   const { id, b, slug } = row;
   const slugOk = bountySlugOk(slug, b.project);
-  const until = Math.min(now() - 120, Number(b.deadline));
   const [project, mine, att] = await Promise.all([
     slugOk ? heyProject(slug).catch(() => null) : null,
     account ? pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'contributed', args: [BigInt(id), account] }).catch(() => 0n) : 0n,
-    !slugOk || b.paid || until < Number(b.start) ? null : heyAttestation(slug, b.builder, Number(b.start), until).catch(() => null),
+    attFor(row),
   ]);
   const ships = att?.ok ? await shipTitles(slug, att.body.evidenceIds ?? []).catch(() => []) : [];
   const holder = document.createElement('div');
   holder.innerHTML = renderBounty(row, { project, mine, att, ships });
   const next = holder.firstElementChild;
   next.__row = row;
+  if (card.classList.contains('hl')) next.classList.add('hl');
   card.replaceWith(next);
   wireCard(next);
 }
@@ -793,20 +890,23 @@ const KIND = {
 };
 const shortId = (evidenceId) => `${String(evidenceId).slice(0, 13)}…`;
 
-/** Which ships HEY counted, each with its kind, date and evidence page, so a backer can judge them. */
+/** Which ships HEY counted (five at most), each with its kind, title, the day HEY first recorded it and its evidence page. */
+const SHIPS_SHOWN = 5;
 function countedShips(att, ships) {
   const ids = att.body.evidenceIds ?? [];
   const urls = att.body.evidenceUrls ?? [];
   if (!ids.length) return '';
   const byId = new Map(ships.map((s) => [s.id, s]));
-  const items = ids.slice(0, 12).map((evidenceId, i) => {
+  const items = ids.slice(0, SHIPS_SHOWN).map((evidenceId, i) => {
     const s = byId.get(evidenceId);
     const evidence = httpsUrl(urls[i]);
     const source = httpsUrl(s?.source);
-    const what = s ? `<b>${esc(KIND[s.kind] ?? s.kind ?? 'Ship')}</b> · ${s.at ? esc(day(Date.parse(s.at) / 1000)) : 'date not read'} · ${esc(s.title ?? '')}` : `<b>Counted ship</b> · <span class="mono">${esc(shortId(evidenceId))}</span>`;
+    const recorded = Date.parse(s?.recordedAt ?? '');
+    const when = Number.isFinite(recorded) ? `recorded ${esc(day(recorded / 1000))}` : 'recorded date not read';
+    const what = s ? `<b>${esc(KIND[s.kind] ?? s.kind ?? 'Ship')}</b> · ${esc(s.title ?? '')} · <span class="muted">${when}</span>` : `<b>Counted ship</b> · <span class="mono">${esc(shortId(evidenceId))}</span>`;
     return `<li><span>${what}${evidence ? ` <a href="${esc(evidence)}" target="_blank" rel="noopener">evidence ↗</a>` : ''}${source ? ` <a href="${esc(source)}" target="_blank" rel="noopener">source ↗</a>` : ''}</span></li>`;
   });
-  const rest = ids.length > 12 ? `<li><span>and ${ids.length - 12} more</span></li>` : '';
+  const rest = ids.length > SHIPS_SHOWN ? `<li><span>and ${ids.length - SHIPS_SHOWN} more</span></li>` : '';
   return `<ul class="ships">${items.join('')}${rest}</ul>`;
 }
 
@@ -852,14 +952,21 @@ function renderBounty({ id, b, slug }, hey) {
   if (met && inWindow && !blocked) actions.push(`<button class="go" data-act="claim" data-id="${id}">Release to builder</button>`);
   if (!pending && !blocked && !b.paid && now() < Number(b.deadline)) actions.push(`<button data-act="fund" data-id="${id}">Add ${T.symbol}</button><span class="fund-box" data-fund-box="${id}" hidden><input type="number" inputmode="decimal" min="0" step="any" placeholder="1000" aria-label="${T.symbol} to add"><button class="go" data-act="fund" data-id="${id}">Add</button></span>`);
   if (!b.paid && now() > graceEnd && mine > 0n) actions.push(`<button data-act="refund" data-id="${id}">Take back ${fmt(mine)} ${T.symbol}</button>`);
-  const share = slugOk ? shareText({ b, name: project?.name ?? slug, open: !b.paid && !blocked && now() <= Number(b.deadline) }) : null;
-  if (share) actions.push(`<a class="share" href="${esc(`https://x.com/intent/post?text=${encodeURIComponent(share)}`)}" target="_blank" rel="noopener">Share on X</a>`);
+  const open = !b.paid && !blocked && now() <= Number(b.deadline);
+  const share = slugOk ? shareText({ id, b, name: project?.name ?? slug, open }) : null;
+  if (share) actions.push(`<a class="share" href="${esc(xIntent(share))}" target="_blank" rel="noopener">Share on X</a>`);
+  // Tell the builder: once HEY has been read for the card, on a bounty that can still be met or is met and in window.
+  if (slugOk && !pending && !blocked && (open || (met && inWindow))) {
+    const tell = tellText({ id, b, name: project?.name ?? slug, handle: officialHandle(project), have });
+    actions.push(`<a class="share" href="${esc(xIntent(tell))}" target="_blank" rel="noopener">Tell the builder</a>`);
+  }
+  if (slugOk) actions.push(`<button class="link-btn" type="button" data-copy-link="${id}">Copy link</button><input class="linkbox mono" readonly hidden aria-label="Link to bounty #${id}">`);
   const list = signed ? countedShips(att, ships) : '';
   const progressLabel = b.paid ? 'Released' : have === null ? 'Ships HEY counted' : `${have} of ${need} ships counted`;
   const where = slugOk
     ? `<a class="slug" href="${CONFIG.hey}/project/${encodeURIComponent(slug)}" target="_blank" rel="noopener">heyresearch.xyz/project/${esc(slug)}</a>`
     : '<span class="slug">opened with a slug that is not a HEY slug</span>';
-  return `<article class="card bounty">
+  return `<article class="card bounty" id="bounty-${id}"${pending ? ' data-pending="1"' : ''}>
     <div class="top">
       <div class="id">${logo(project?.logoUrl, name)}<div><span class="name">${esc(name)}</span>${where}</div></div>
       <span class="chip ${state[0]}">${state[1]}</span>
@@ -881,16 +988,38 @@ function renderBounty({ id, b, slug }, hey) {
 
 /** A factual post for X about one bounty: open (what it pays and when) or paid (what the builder received). */
 const PAGE_LINK = 'hey-research-lab.github.io/proof-of-ship';
+const bountyLink = (id) => `${PAGE_LINK}#bounty-${id}`;
+const bountyUrl = (id) => `https://${PAGE_LINK}/#bounty-${id}`;
+const xIntent = (text) => `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
 const dayMonth = (s) => new Date(Number(s) * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-function shareText({ b, name, open }) {
+function shareText({ id, b, name, open }) {
   const need = Number(b.minShips);
   const ships = `${need} ship${need === 1 ? '' : 's'}`;
   if (b.paid) {
     const paid = b.total - (b.total * BigInt(b.burnBps)) / 10_000n;
-    return `${name} shipped and claimed ${fmt(paid)} $${T.symbol} from a Proof of Ship bounty, released when Hey Research Lab counted ${ships}. ${PAGE_LINK}`;
+    return `${name} shipped and claimed ${fmt(paid)} $${T.symbol} from a Proof of Ship bounty, released when Hey Research Lab counted ${ships}. ${bountyLink(id)}`;
   }
   if (!open) return null;
-  return `${fmt(b.total)} $${T.symbol} for ${name}, released only when Hey Research Lab counts ${ships} by ${dayMonth(b.deadline)}. If they don't ship, the backers take it back. ${PAGE_LINK}`;
+  return `${fmt(b.total)} $${T.symbol} for ${name}, released only when Hey Research Lab counts ${ships} by ${dayMonth(b.deadline)}. If they don't ship, the backers take it back. ${bountyLink(id)}`;
+}
+
+/** The project's official X handle, only when HEY reads the account as active and holds no hold on its link. */
+const officialHandle = (project) => {
+  const x = project?.officialX;
+  const handle = typeof x?.handle === 'string' ? x.handle.replace(/^@/, '') : '';
+  return x?.status === 'ACTIVE' && (x.linkHeld === null || x.linkHeld === undefined) && /^[A-Za-z0-9_]{1,15}$/.test(handle) ? handle : null;
+};
+/** A factual post that tells the builder a bounty is waiting: tagged only through officialHandle, else the name. */
+function tellText({ id, b, name, handle, have }) {
+  const need = Number(b.minShips);
+  const who = handle ? `@${handle}` : `${name},`;
+  const amount = `${fmt(b.total)} $${T.symbol}`;
+  if (have !== null && have >= need) {
+    return `${who} there's ${amount} waiting for you on Proof of Ship: Hey Research Lab counts ${have} of your ships, enough to release it now. Anyone can press Release and it goes to your payout wallet. ${bountyLink(id)}`;
+  }
+  const left = have ? need - have : need;
+  const ships = have ? `${left} more` : `${left} ship${left === 1 ? '' : 's'}`;
+  return `${who} there's ${amount} waiting for you on Proof of Ship: Hey Research Lab counts your ships, and ${ships} by ${dayMonth(b.deadline)} releases it. Nothing to apply for, just keep shipping. ${bountyLink(id)}`;
 }
 
 async function act(kind, id) {

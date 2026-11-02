@@ -103,7 +103,15 @@ without a prompt · bounties and stats read straight from the chain, no wallet n
 project's exact slug when you pick one; a slug typed by hand is used exactly as typed. HEY's payout tie fills in the
 payout wallet when HEY ties one address to the project, offers the choice when it ties two, and says plainly when it
 ties none (such a bounty can only be refunded after its deadline). Time to ship is 7, 14 or 30 days, or any 1–365.
-Every bounty card has a *Share on X* link with a factual post.
+Every bounty card has a *Share on X* link with a factual post and a *Copy link* button; each card has its own address
+(`#bounty-<id>`), and a link to one scrolls to it and marks it for a moment.
+
+**For builders:** an open bounty's *Tell the builder* link drafts a post on X telling the team a bounty is waiting —
+tagged with the project's official X only when HEY reads the account as active and holds no hold on it, otherwise
+naming the project. Connect the payout wallet and a banner at the top says what is waiting for you: the amount, HEY's
+signed count against the target and the deadline, and, once the target is met, that it can be released now (anyone can
+press *Release to builder*; the $WIF goes to the payout wallet). Each card lists the ships HEY counted, up to five, with
+the day HEY first recorded each and its evidence. The page carries one social preview card (`app/og.png`) for every link.
 
 ## Live on Robinhood Chain
 

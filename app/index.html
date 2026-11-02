@@ -6,8 +6,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Proof of Ship</title>
 <meta name="description" content="Back a Robinhood Chain builder with $WIF. It pays out only when Hey Research Lab counts real ships, each with its source.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Proof of Ship by Hey Research Lab">
+<meta property="og:url" content="https://hey-research-lab.github.io/proof-of-ship/">
 <meta property="og:title" content="Proof of Ship">
 <meta property="og:description" content="Back a Robinhood Chain builder with $WIF. It pays out only when they ship.">
+<meta property="og:image" content="https://hey-research-lab.github.io/proof-of-ship/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Proof of Ship. Back a Robinhood Chain builder with $WIF. It pays out only when they ship.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Proof of Ship">
+<meta name="twitter:description" content="Back a Robinhood Chain builder with $WIF. It pays out only when they ship.">
+<meta name="twitter:image" content="https://hey-research-lab.github.io/proof-of-ship/og.png">
+<meta name="twitter:image:alt" content="Proof of Ship. Back a Robinhood Chain builder with $WIF. It pays out only when they ship.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0d12'/%3E%3Cpath d='M9 17l5 5 9-12' stroke='%234cc38a' stroke-width='3.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -186,9 +199,27 @@ form.card{padding:22px}
 .ships li::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--acc);transform:translateY(-2px)}
 .ships a{color:var(--mut);font-size:13px}
 .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button.link-btn{font-size:13.5px;font-weight:550;padding:9px 12px;border-radius:10px;color:var(--sec)}
+.linkbox{flex:1 1 220px;min-width:0;height:38px;font-size:12.5px;padding:0 10px;border:1px solid var(--line2);border-radius:10px;background:var(--field);color:var(--ink)}
+.linkbox[hidden]{display:none}
+.bounty{scroll-margin-top:16px;transition:box-shadow .3s ease,border-color .3s ease}
+.bounty.hl{border-color:var(--acc);box-shadow:0 0 0 3px var(--accSoft),var(--shadow);animation:hl 2.4s ease}
+@keyframes hl{0%,40%{box-shadow:0 0 0 6px var(--accSoft),var(--shadow)}100%{box-shadow:0 0 0 3px var(--accSoft),var(--shadow)}}
 .actions .mono{font-size:12.5px;color:var(--mut);margin-left:auto}
 a.share{display:inline-flex;align-items:center;font-weight:600;font-size:15px;line-height:1;border-radius:11px;padding:12px 16px;border:1px solid var(--line2);background:var(--surface);color:var(--ink);text-decoration:none}
 a.share:hover{border-color:var(--ink)}
+a.go-link{display:inline-flex;align-items:center;font-weight:600;font-size:15px;line-height:1;border-radius:11px;padding:12px 16px;background:var(--acc);color:var(--accInk);text-decoration:none;white-space:nowrap}
+a.go-link:hover{filter:brightness(1.06)}
+
+/* builder banner */
+.banner{margin:4px 0 0;border:1px solid var(--acc);border-radius:var(--r);background:var(--surface);box-shadow:0 0 0 3px var(--accSoft),var(--shadow);padding:16px 18px;display:grid;gap:12px}
+.banner[hidden]{display:none}
+.banner h2{font-size:18px;letter-spacing:-.015em}
+.banner-row{display:flex;justify-content:space-between;align-items:center;gap:10px 16px;flex-wrap:wrap}
+.banner-row>div{min-width:0;flex:1 1 260px}
+.banner p{margin:0;font-size:14.5px;color:var(--sec);font-variant-numeric:tabular-nums}
+.banner p.ok{color:var(--acc);margin-top:4px}
+.banner p.ok b{font-weight:650}
 .empty{border:1px dashed var(--line2);border-radius:var(--r);padding:28px;text-align:center;color:var(--mut);font-size:15px}
 .skel{height:180px;border-radius:var(--r);background:linear-gradient(90deg,var(--surface),var(--bg2),var(--surface));background-size:200% 100%;animation:sk 1.4s ease infinite;border:1px solid var(--line)}
 @keyframes sk{to{background-position:-200% 0}}
@@ -286,6 +317,8 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
         </div>
       </div></div>
   </header>
+
+  <div id="builderBanner" class="banner" hidden aria-live="polite"></div>
 
   <div class="hero">
     <div>
@@ -415,6 +448,6 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
   <div id="walletList" class="wallet-list"></div>
   <p class="fine">Robinhood Chain (4663) is added to your wallet if it isn't there yet. Reading bounties needs no wallet.</p>
 </dialog>
-<script type="module" src="./app.js?v=11"></script>
+<script type="module" src="./app.js?v=12"></script>
 </body>
 </html>
