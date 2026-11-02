@@ -203,6 +203,15 @@ a.share:hover{border-color:var(--ink)}
 .contract .k{font-size:12px;color:var(--mut)}
 .contract a{font-family:var(--mono);font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
 
+.news{display:grid;gap:10px;margin:0;padding:0}
+.news li{list-style:none;display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:baseline;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.news time{font-family:var(--mono);font-size:12px;color:var(--mut);letter-spacing:.04em}
+.news p{margin:0;color:var(--sec);font-size:14px;line-height:1.5}
+.news b{color:var(--ink);font-weight:600}
+.news-cta{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin-top:14px;font-size:14px;color:var(--sec)}
+a.follow{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;text-decoration:none;color:var(--accInk);background:var(--acc);border-radius:11px;padding:10px 14px}
+a.follow:hover{filter:brightness(1.05)}
+@media (max-width:520px){.news li{grid-template-columns:1fr;gap:4px}}
 footer{margin:56px 0 0;padding:24px 0 48px;border-top:1px solid var(--line);font-size:13px;color:var(--mut);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 
 #toast{position:fixed;left:16px;right:16px;bottom:20px;margin:0 auto;width:fit-content;z-index:10;max-width:560px;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;font-size:14px;box-shadow:0 12px 40px -10px rgba(0,0,0,.4)}
@@ -372,6 +381,17 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
   <section id="bounties-section">
     <div class="sh"><h2>Bounties</h2><p id="bCount"></p></div>
     <div id="bounties" class="list"><div class="skel"></div></div>
+  </section>
+
+  <section id="news">
+    <div class="sh"><h2>What's new</h2><p>The latest first. Every update in full is on the hackathon page.</p></div>
+    <ul class="news">
+      <li><time datetime="2026-11-02">2 Nov</time><p><b>Opening a bounty got easier.</b> Search any project by name, ticker or contract, and the payout address HEY will sign for fills in by itself. A project HEY can't pay yet says why before you lock anything.</p></li>
+      <li><time datetime="2026-11-01">1 Nov</time><p><b>Bounty #1 opened</b> with 5,000 $WIF for fly.ai, released at 3 more ships.</p></li>
+      <li><time datetime="2026-10-26">26 Oct</time><p><b>Bounty #0 paid out.</b> predict FWA shipped 3 times and claimed 4,900 $WIF, 100 $WIF burned.</p></li>
+      <li><time datetime="2026-10-24">24 Oct</time><p><b>Live on Robinhood Chain:</b> an escrow with no owner, source verified on Sourcify, and it works on phones.</p></li>
+    </ul>
+    <div class="news-cta"><a class="follow" href="https://worldisflat.fun/build/projects/proof-of-ship" target="_blank" rel="noopener">Follow on World is Flat</a><span>Get every update, and vote when voting opens.</span></div>
   </section>
 
   <section>
