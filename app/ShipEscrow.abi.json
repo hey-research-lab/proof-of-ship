@@ -11,6 +11,11 @@
         "name": "token_",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "guardian_",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -463,6 +468,19 @@
   },
   {
     "type": "function",
+    "name": "guardian",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "refund",
     "inputs": [
       {
@@ -473,6 +491,26 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "retire",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "retired",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -613,6 +651,12 @@
   {
     "type": "event",
     "name": "EIP712DomainChanged",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "EscrowRetired",
     "inputs": [],
     "anonymous": false
   },
@@ -761,6 +805,11 @@
   },
   {
     "type": "error",
+    "name": "NotGuardian",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NothingFunded",
     "inputs": []
   },
@@ -782,6 +831,11 @@
   {
     "type": "error",
     "name": "RefundNotOpen",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Retired",
     "inputs": []
   },
   {

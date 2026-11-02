@@ -1,6 +1,6 @@
 import {
-  createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits, getAddress, isAddress, keccak256, stringToBytes,
-} from './vendor/viem.js?v=6';
+  createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits, getAddress, isAddress, keccak256, recoverTypedDataAddress, stringToBytes,
+} from './vendor/viem.js?v=7';
 import { CONFIG } from './config.js?v=8';
 
 // A page that signs approve, fund and claim never runs inside another site's frame: it says so, links to itself and
@@ -22,7 +22,7 @@ const chain = {
   blockExplorers: { default: { name: 'Blockscout', url: CONFIG.explorer } },
 };
 const pub = createPublicClient({ chain, transport: http(CONFIG.rpc) });
-const ABI = await (await fetch('./ShipEscrow.abi.json?v=5')).json();
+const ABI = await (await fetch('./ShipEscrow.abi.json?v=6')).json();
 const ERC20 = [
   { type: 'function', name: 'allowance', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }] },
@@ -32,13 +32,26 @@ const GRACE = 3 * 86400;
 const T = CONFIG.token;
 const $ = (s) => document.querySelector(s);
 let wallet = null, account = null;
+/** The escrow's own `retired()`: null until read. Once the guardian retires it, refunds open at once and nothing else works. */
+let escrowRetired = null;
+/** One transaction flow at a time, page-wide: set before the first await, cleared in finally (see runExclusive). */
+let busy = false;
 
 // ------------------------------------------------------------------ helpers
 let toastTimer;
+/** A toast is plain text, or nodes built with the DOM: nothing from a wallet, HEY or an error message is parsed as HTML. */
 const toast = (msg, sticky = false) => {
   clearTimeout(toastTimer);
-  $('#toast').innerHTML = msg || '';
-  if (msg && !sticky) toastTimer = setTimeout(() => { $('#toast').innerHTML = ''; }, 5000);
+  const el = $('#toast');
+  if (msg instanceof Node) el.replaceChildren(msg); else el.textContent = msg || '';
+  if (msg && !sticky) toastTimer = setTimeout(() => { el.replaceChildren(); }, 5000);
+};
+/** Text with one link in it, for a toast: `before`, a link to `href` reading `linkText`, then `after`. */
+const linkToast = (before, href, linkText, after = '') => {
+  const f = document.createDocumentFragment();
+  const a = Object.assign(document.createElement('a'), { href, target: '_blank', rel: 'noopener', textContent: linkText });
+  f.append(before, a, after);
+  return f;
 };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
@@ -50,7 +63,9 @@ const compact = (v) => {
 };
 const day = (s) => new Date(Number(s) * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const now = () => Math.floor(Date.now() / 1000);
-const tx = (h) => `${CONFIG.explorer}/tx/${h}`;
+const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
+/** A transaction's explorer link, only for a well-formed hash: a wallet's answer is outside text. */
+const tx = (h) => { if (!TX_HASH_RE.test(String(h))) throw new Error('The wallet answered with something that is not a transaction hash.'); return `${CONFIG.explorer}/tx/${h}`; };
 const addrUrl = (a) => `${CONFIG.explorer}/address/${a}`;
 /** A link or image address from HEY or the chain, only when it is https:; anything else is not rendered. */
 const httpsUrl = (url) => { try { const u = new URL(String(url)); return u.protocol === 'https:' ? u.href : null; } catch { return null; } };
@@ -270,7 +285,7 @@ async function send(req, label) {
   if ((await showNetwork()) !== chain.id) await ensureChain(true);
   toast(`${label}: confirm in your wallet…`, true);
   const hash = await wallet.writeContract({ account, chain, ...req });
-  toast(`${label}: waiting for <a href="${tx(hash)}" target="_blank" rel="noopener">the transaction</a>…`, true);
+  toast(linkToast(`${label}: waiting for `, tx(hash), 'the transaction', '…'), true);
   const r = await pub.waitForTransactionReceipt({ hash });
   if (r.status !== 'success') throw new Error(`${label} reverted.`);
   return hash;
@@ -390,11 +405,20 @@ const tieReason = (code) => TIE_REASONS[code]
 
 // ------------------------------------------------------------------ composer
 const form = $('#create');
+/** A plain decimal amount, no sign or exponent, at most the token's 18 decimals: "5000", "12.5". */
+const AMOUNT_RE = /^\d+(\.\d{1,18})?$/;
+const AMOUNT_MESSAGE = `Enter the ${T.symbol} as a plain number above 0, e.g. 5000.`;
+/** The amount in token units, or null when the text is not a plain decimal above 0. */
+const parseAmount = (text) => {
+  const t = String(text ?? '').trim();
+  if (!AMOUNT_RE.test(t)) return null;
+  try { const v = parseUnits(t, T.decimals); return v > 0n ? v : null; } catch { return null; }
+};
 function readForm() {
   const f = new FormData(form);
-  const amountStr = String(f.get('amount') || '0');
-  let amount = 0n;
-  try { amount = parseUnits(amountStr, T.decimals); } catch { /* shown as 0 */ }
+  const amountStr = String(f.get('amount') ?? '').trim();
+  const parsed = parseAmount(amountStr);
+  const amount = parsed ?? 0n;
   return {
     // As typed (less surrounding spaces), never tidied: the escrow keys the bounty on these exact bytes.
     slug: String(f.get('slug') || '').trim(),
@@ -403,6 +427,7 @@ function readForm() {
     days: Math.max(0, Math.floor(Number(f.get('days')) || 0)),
     burnBps: Math.round(Math.min(10, Math.max(0, Number(f.get('burn')) || 0)) * 100),
     amount,
+    amountOk: parsed !== null,
   };
 }
 function renderPreview() {
@@ -417,12 +442,18 @@ function renderPreview() {
   $('#pRefund').textContent = v.days ? day(by + GRACE) : '—';
   $('#daysHint').textContent = v.days ? `Ships counted until ${day(by)}.` : '';
   const bh = $('#balHint'), btn = $('#openBtn');
-  if (heldWif !== null) {
-    const over = v.amount > heldWif;
+  let over = false;
+  if (!v.amountOk) {
+    bh.className = 'hint bad';
+    bh.textContent = AMOUNT_MESSAGE;
+  } else if (heldWif !== null) {
+    over = v.amount > heldWif;
     bh.className = over ? 'hint bad' : 'hint';
     bh.innerHTML = `${over ? 'More than you hold: ' : 'You hold '}${fmt(heldWif)} ${T.symbol}. <a href="#" id="useAll">Use all</a>`;
-    btn.disabled = over;
+  } else if (bh.classList.contains('bad') && bh.textContent === AMOUNT_MESSAGE) {
+    bh.className = 'hint'; bh.textContent = '';
   }
+  btn.disabled = over || busy || escrowRetired === true;
   const p = v.slug ? projectCache.get(v.slug) : undefined;
   const name = p?.name ?? (v.slug || 'the project');
   $('#pSentence').textContent = v.slug && isAddress(v.builder)
@@ -457,6 +488,9 @@ const checkSlug = debounce(async () => {
  * and can't do. The attestation check on the payout field and on Open stays the gate either way.
  */
 let tieState = { slug: null, tie: null };
+/** The last signature check of the payout field: the tie box says "HEY will pay" only once HEY's signature checked out. */
+let tieCheck = { slug: null, builder: null, ok: null };
+const tieChecked = (slug, address) => tieCheck.slug === slug && isAddress(String(tieCheck.builder)) && sameHash(tieCheck.builder, address) ? tieCheck.ok : null;
 let autofilled = null; // the payout address this page wrote, so a later project may replace it and a typed one never is
 function writeBuilder(address) {
   const el = $('#builder');
@@ -477,6 +511,8 @@ function setTie(slug, tie) {
   }
   renderTie();
 }
+/** The full payout address, linked to the explorer, so the reader can check every character before signing. */
+const addrLine = (address) => `<p class="addr-line">Payout address <a class="mono" href="${esc(addrUrl(address))}" target="_blank" rel="noopener">${esc(address)} ↗</a></p>`;
 function renderTie() {
   const box = $('#tieBox');
   const { tie } = tieState;
@@ -488,10 +524,15 @@ function renderTie() {
     parts.push(`<p class="bad">HEY can’t pay this project yet: ${esc(tieReason(tie.reason))}. A bounty you open now can only be refunded after its deadline.</p>`);
   } else if (tie.ties.length === 1) {
     const t = tie.ties[0];
-    parts.push(`<p class="ok">HEY will pay this address: ${esc(tieWords(t.kinds))}.</p>`);
+    const checked = tieChecked(tieState.slug, t.address);
+    parts.push(checked === true
+      ? `<p class="ok">HEY will pay this address: ${esc(tieWords(t.kinds))}.</p>${addrLine(t.address)}`
+      : `<p>HEY names this address, ${esc(tieWords(t.kinds))}${checked === false ? ', but HEY did not confirm it just now: see the note under the payout address.' : '. Checking HEY’s signature for it…'}</p>${addrLine(t.address)}`);
   } else {
     parts.push('<p>HEY ties two addresses to this project. Choose the one to pay:</p>');
     parts.push(`<div class="choices">${tie.ties.map((t) => `<button type="button" data-tie="${esc(t.address)}" aria-pressed="${Boolean(typed) && sameHash(typed, t.address)}"><span>${esc(tieWords(t.kinds).replace(/^./, (c) => c.toUpperCase()))}</span><span class="mono">${esc(t.address)}</span></button>`).join('')}</div>`);
+    const chosen = tie.ties.find((t) => isAddress(typed) && sameHash(t.address, typed));
+    if (chosen) parts.push(addrLine(chosen.address));
   }
   if (tie.payable && tie.ties.length && isAddress(typed) && !tie.ties.some((t) => sameHash(t.address, typed))) {
     parts.push(`<p class="bad">HEY will not sign for ${esc(short(typed))}: it isn’t an address HEY ties to this project.</p>`);
@@ -508,17 +549,57 @@ const checkBuilder = debounce(async () => {
   renderPreview();
   if (!slug || !isHeySlug(slug) || !CONFIG.escrow) return;
   const tie = await builderTie(slug, builder);
+  // An answer for an address or project the field no longer holds is dropped, never shown beside the new one.
+  const cur = readForm();
+  if (cur.slug !== slug || cur.builder !== builder) return;
+  tieCheck = { slug, builder, ok: tie.ok };
+  renderTie();
   if (tie.ok) { hint.className = 'hint ok'; hint.textContent = tie.text; }
   else if (tie.known) { hint.className = 'hint bad'; hint.textContent = tie.text; }
 }, 450);
+/** The EIP-712 domain and type the escrow checks HEY's signature against (src/ShipEscrow.sol, SHIPS_TYPEHASH). */
+const SHIPS_TYPES = {
+  Ships: [
+    { name: 'project', type: 'bytes32' }, { name: 'builder', type: 'address' }, { name: 'since', type: 'uint64' },
+    { name: 'until', type: 'uint64' }, { name: 'ships', type: 'uint32' }, { name: 'evidence', type: 'bytes32' },
+    { name: 'issuedAt', type: 'uint64' },
+  ],
+};
+const BYTES32_RE = /^0x[0-9a-fA-F]{64}$/;
+/**
+ * Whether an attestation answer is HEY's signature over this exact project and payout address: the project is
+ * keccak256 of the slug's exact bytes, the builder is the address asked about, and the EIP-712 signer is the attester
+ * fixed in the escrow. A 200 that is anything else proves nothing, whatever it says.
+ */
+async function attestationSignedFor(body, slug, builder) {
+  const a = body?.attestation;
+  if (!a || typeof body.signature !== 'string' || !/^0x[0-9a-fA-F]+$/.test(body.signature)) return false;
+  if (!isAddress(String(a.builder ?? '')) || !sameHash(a.builder, builder)) return false;
+  if (!sameHash(a.project, keccak256(stringToBytes(slug))) || !BYTES32_RE.test(String(a.evidence ?? ''))) return false;
+  try {
+    const message = {
+      project: a.project, builder: getAddress(a.builder), since: BigInt(a.since), until: BigInt(a.until),
+      ships: Number(a.ships), evidence: a.evidence, issuedAt: BigInt(a.issuedAt),
+    };
+    const signer = await recoverTypedDataAddress({
+      domain: { name: 'HEY Proof of Ship', version: '1', chainId: CONFIG.chainId, verifyingContract: CONFIG.escrow },
+      types: SHIPS_TYPES, primaryType: 'Ships', message, signature: body.signature,
+    });
+    return sameHash(signer, CONFIG.attester);
+  } catch { return false; }
+}
 /**
  * Whether HEY ties a payout address to the project — asked of HEY's attestation route over a one-minute window, so
- * nothing is signed that could be used. `known` is false when HEY could not be asked (offline, busy, paused).
+ * nothing is signed that could be used, and the signature checked against the escrow's attester before it counts.
+ * `known` is false when HEY could not be asked (offline, busy, paused).
  */
 async function builderTie(slug, builder) {
   const t = now() - 120;
   const res = await heyAttestation(slug, builder, t - 60, t).catch(() => null);
   if (res?.ok) {
+    if (!(await attestationSignedFor(res.body, slug, builder))) {
+      return { ok: false, known: true, text: 'HEY’s answer for this address is not HEY’s signature for this project and address, so the page will not open a bounty for it.' };
+    }
     const how = res.body.builderTie === 'wallet_claim' ? 'it signed for the project’s token to claim the project on HEY' : 'it deployed the project’s verified token';
     return { ok: true, known: true, text: `HEY ties this address to the project: ${how}.` };
   }
@@ -646,36 +727,91 @@ slugList.addEventListener('mousedown', (e) => e.preventDefault());
 slugList.addEventListener('click', (e) => { const li = e.target.closest('[role="option"]'); if (li) acPick(Number(li.dataset.i)); });
 slugList.addEventListener('mousemove', (e) => { const li = e.target.closest('[role="option"]'); if (li && Number(li.dataset.i) !== acActive) acHighlight(Number(li.dataset.i)); });
 
-form.addEventListener('submit', async (e) => {
+/*
+ * One transaction flow at a time. The flag is checked and set before the first await, so a double click, or Open
+ * pressed while an Add is pending, starts nothing; every action button is disabled and the form is inert until the flow
+ * ends, so what the screen shows cannot drift from what the wallet is asked to sign.
+ */
+function setBusy(on) {
+  busy = on;
+  form.inert = on || escrowRetired === true;
+  document.querySelectorAll('[data-act], .fund-box input').forEach((el) => { el.disabled = on; });
+  renderPreview();
+}
+let focusAfter = null; // a field a refusal pointed at, focused once the form is no longer inert
+async function runExclusive(fn) {
+  if (busy) return;
+  setBusy(true);
+  try { await fn(); } finally {
+    setBusy(false);
+    if (focusAfter) { $(focusAfter)?.focus({ preventScroll: true }); focusAfter = null; }
+  }
+}
+
+/** Whether the escrow is retired, read from the chain now; a failed read is an error, never "not retired". */
+async function readRetired() {
+  const r = await pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'retired' });
+  if (r !== escrowRetired) { escrowRetired = r; renderRetired(); }
+  return r;
+}
+const RETIRED_MESSAGE = 'This escrow was retired by its guardian. Backers can take their $WIF back now.';
+/** A retired escrow: say so at the top, and take away Open (the cards drop Add and Release and offer Take back). */
+function renderRetired() {
+  const on = escrowRetired === true;
+  $('#retiredBanner').hidden = !on;
+  $('#retiredNote').hidden = !on;
+  $('#openBtn').hidden = on;
+  form.inert = on || busy;
+  renderPreview();
+  renderBanner();
+}
+
+/** A deadline the escrow accepts when the create is mined: from the chain's latest block, never the reader's clock. */
+const MIN_DURATION = 86400, MAX_DURATION = 365 * 86400; // src/ShipEscrow.sol
+const DEADLINE_MARGIN = 15 * 60;
+async function chainDeadline(days) {
+  const block = await pub.getBlock({ blockTag: 'latest' });
+  const base = Number(block.timestamp);
+  // MIN_DURATION and MAX_DURATION are measured from the block the create lands in, which is at or after `base`: the
+  // margin keeps a 1-day bounty valid while the reader confirms, and the cap keeps a 365-day one inside the maximum.
+  const want = base + days * 86400 + DEADLINE_MARGIN;
+  return BigInt(Math.min(Math.max(want, base + MIN_DURATION + DEADLINE_MARGIN), base + MAX_DURATION));
+}
+form.addEventListener('submit', (e) => {
   e.preventDefault();
-  const btn = $('#openBtn');
+  runExclusive(openBounty).catch(fail);
+});
+async function openBounty() {
   try {
     if (!CONFIG.escrow) throw new Error('The escrow is not deployed yet.');
     const v = readForm();
-    const bad = (id, hintId, msg) => { const h = $(hintId); h.className = 'hint bad'; h.textContent = msg; $(id).focus(); $(id).scrollIntoView({ behavior: 'smooth', block: 'center' }); return new Error(msg); };
+    const bad = (id, hintId, msg) => { const h = $(hintId); h.className = 'hint bad'; h.textContent = msg; focusAfter = id; $(id).scrollIntoView({ behavior: 'smooth', block: 'center' }); return new Error(msg); };
     if (!v.slug) throw bad('#slug', '#slugHint', 'Type the project’s slug, e.g. predict-fwa.');
     // Refused, not warned: the escrow keys a bounty on these bytes for good, and HEY signs only a HEY slug.
     if (!isHeySlug(v.slug)) throw bad('#slug', '#slugHint', SLUG_FORM_MESSAGE);
     if (!isAddress(v.builder)) throw bad('#builder', '#builderHint', 'Paste the builder’s payout address (0x…).');
     if (v.minShips < 1) throw new Error('A bounty needs at least one ship.');
     if (v.days < 1 || v.days > 365) throw new Error('Time to ship is 1 to 365 days.');
+    // Refused, not warned: an empty bounty is hidden from the list and helps nobody.
+    if (!v.amountOk) throw bad('#amount', '#balHint', AMOUNT_MESSAGE);
+    if (await readRetired()) throw new Error(RETIRED_MESSAGE);
     const project = await heyProject(v.slug);
     if (!project) throw new Error(`HEY has no published project "${v.slug}".`);
     // Refused, not warned: a bounty for an address HEY will never sign for locks its $WIF until the deadline passes.
     const tie = await builderTie(v.slug, v.builder);
     if (!tie.ok) throw bad('#builder', '#builderHint', tie.text);
     await needWallet();
-    btn.disabled = true;
-    const deadline = BigInt(now() + v.days * 86400);
     const bal = await pub.readContract({ address: T.address, abi: ERC20, functionName: 'balanceOf', args: [account] });
     if (v.amount > bal) throw new Error(`You hold ${fmt(bal)} ${T.symbol}; lower the amount to lock.`);
-    if (v.amount > 0n) await ensureAllowance(v.amount);
-    const hash = await send({ address: CONFIG.escrow, abi: ABI, functionName: 'create', args: [T.address, getAddress(v.builder), v.slug, v.minShips, deadline, v.burnBps, v.amount] }, 'Open bounty');
-    toast(`Bounty opened. <a href="${tx(hash)}" target="_blank" rel="noopener">View transaction</a>`);
+    await ensureAllowance(v.amount);
+    const deadline = await chainDeadline(v.days);
+    const builder = getAddress(v.builder);
+    const hash = await send({ address: CONFIG.escrow, abi: ABI, functionName: 'create', args: [T.address, builder, v.slug, v.minShips, deadline, v.burnBps, v.amount] }, `Open bounty for ${v.slug} paying ${builder}`);
+    toast(linkToast('Bounty opened. ', tx(hash), 'View transaction'));
     await load();
     document.getElementById('bounties-section').scrollIntoView({ behavior: 'smooth' });
-  } catch (err) { fail(err); } finally { btn.disabled = false; }
-});
+  } catch (err) { fail(err); }
+}
 
 // ------------------------------------------------------------------ bounties
 /*
@@ -691,10 +827,12 @@ let listing = null;
 async function load() {
   const box = $('#bounties');
   if (!CONFIG.escrow) { box.innerHTML = '<div class="empty">The escrow is being deployed. Bounties appear here as soon as it is live.</div>'; return; }
-  const [count, locked] = await Promise.all([
+  const [count, locked, retired] = await Promise.all([
     pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'bountyCount' }).then(Number),
     pub.readContract({ address: T.address, abi: ERC20, functionName: 'balanceOf', args: [CONFIG.escrow] }),
+    pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'retired' }),
   ]);
+  if (retired !== escrowRetired) { escrowRetired = retired; renderRetired(); }
   $('#sLocked').innerHTML = `${compact(locked)}<small>${T.symbol}</small>`;
   if (count === 0) {
     box.innerHTML = '<div class="empty">No bounties yet. Open the first one above.</div>';
@@ -723,7 +861,7 @@ async function more() {
     ids.forEach((id, i) => {
       const b = bounties[i];
       if (b.paid) { const x = (b.total * BigInt(b.burnBps)) / 10_000n; l.burned += x; l.paid += b.total - x; }
-      else if (b.total > 0n && now() <= Number(b.deadline) + GRACE) l.open++;
+      else if (b.total > 0n && !escrowRetired && now() <= Number(b.deadline) + GRACE) l.open++;
       if (b.total === 0n) l.unfunded++;
       else funded.push({ id, b });
     });
@@ -768,7 +906,10 @@ async function more() {
 }
 
 function wireCard(card) {
-  card.querySelectorAll('[data-act]').forEach((el) => el.addEventListener('click', () => act(el.dataset.act, Number(el.dataset.id)).catch(fail)));
+  card.querySelectorAll('[data-act]').forEach((el) => {
+    el.disabled = busy;
+    el.addEventListener('click', () => runExclusive(() => act(el.dataset.act, Number(el.dataset.id))).catch(fail));
+  });
   card.querySelectorAll('[data-copy-link]').forEach((el) => el.addEventListener('click', () => copyLink(el)));
   wireLogos(card);
 }
@@ -781,7 +922,7 @@ async function copyLink(btn) {
     toast('Link copied.');
   } catch {
     const box = btn.parentElement.querySelector('.linkbox');
-    if (!box) { toast(esc(url)); return; }
+    if (!box) { toast(url); return; }
     box.hidden = false;
     box.value = url;
     box.focus();
@@ -793,7 +934,7 @@ async function copyLink(btn) {
 /** HEY's signed count for one bounty, asked once per read of the list (the card and the builder banner share it). */
 function attFor({ id, b, slug }) {
   const until = Math.min(now() - 120, Number(b.deadline));
-  if (!bountySlugOk(slug, b.project) || b.paid || until < Number(b.start)) return Promise.resolve(null);
+  if (escrowRetired || !bountySlugOk(slug, b.project) || b.paid || until < Number(b.start)) return Promise.resolve(null);
   const cache = listing?.atts;
   if (cache?.has(id)) return cache.get(id);
   const p = heyAttestation(slug, b.builder, Number(b.start), until).catch(() => null);
@@ -834,7 +975,7 @@ let bannerSeq = 0;
 async function renderBanner() {
   const el = $('#builderBanner');
   const seq = ++bannerSeq;
-  const mineRows = account && listing
+  const mineRows = account && listing && !escrowRetired
     ? listing.rows.filter(({ b, slug }) => !b.paid && b.total > 0n && now() <= Number(b.deadline) + GRACE && sameHash(b.builder, account) && bountySlugOk(slug, b.project))
     : [];
   if (!mineRows.length) { el.hidden = true; el.innerHTML = ''; return; }
@@ -916,11 +1057,16 @@ function renderBounty({ id, b, slug }, hey) {
   const until = Math.min(now() - 120, Number(b.deadline));
   const need = Number(b.minShips);
   const graceEnd = Number(b.deadline) + GRACE;
-  const inWindow = !b.paid && now() <= graceEnd;
+  const retired = escrowRetired === true;
+  // A retired escrow releases nothing and takes no more $WIF; every backer's refund is open now.
+  const inWindow = !b.paid && !retired && now() <= graceEnd;
   // HEY's answer counts only when it is for this bounty's project: the slug's hash the escrow will check.
   const signed = att?.ok && sameHash(att.body.attestation?.project, b.project);
   let have = null, note = '', blocked = false;
-  if (!b.paid && !slugOk) {
+  if (!b.paid && retired) {
+    blocked = true;
+    note = mine > 0n ? RETIRED_MESSAGE : 'This escrow was retired by its guardian: this bounty can no longer be released or added to, and its backers can take their $WIF back now.';
+  } else if (!b.paid && !slugOk) {
     blocked = true;
     note = `This bounty cannot be released — the slug it was opened with is not a HEY slug; backers can refund after ${day(graceEnd)}.`;
   } else if (signed) {
@@ -935,8 +1081,15 @@ function renderBounty({ id, b, slug }, hey) {
   // No signed count, no claim of one: HEY's timeline is not what the escrow releases on (it counts each kind once a day
   // and only ships HEY recorded inside the window), so the page says the count is unavailable rather than guess.
   const unavailable = !pending && !b.paid && !note && !signed && until >= Number(b.start);
+  // HEY could not be asked (offline, busy, paused): its tie is unknown, so nothing that sends $WIF or tells the
+  // project about the bounty is offered until HEY answers. Copy link and the explorer stay.
+  if (unavailable && now() < Number(b.deadline)) {
+    blocked = true;
+    note = 'HEY can’t be reached right now, so adding $WIF and sharing are off until it answers. Try again shortly.';
+  }
   const met = have !== null && have >= need;
   const state = b.paid ? ['ok', 'Paid out']
+    : retired ? ['off', 'Escrow retired · backers can take back']
     : !slugOk ? ['off', 'Cannot be released · not a HEY slug']
     : att?.status === 403 ? ['off', 'Payout address not tied']
     : att?.status === 404 ? ['off', 'Not on HEY · cannot release now']
@@ -950,13 +1103,14 @@ function renderBounty({ id, b, slug }, hey) {
   const name = slugOk ? project?.name ?? slug : slug.length > 60 ? `${slug.slice(0, 60)}…` : slug;
   const actions = [];
   if (met && inWindow && !blocked) actions.push(`<button class="go" data-act="claim" data-id="${id}">Release to builder</button>`);
-  if (!pending && !blocked && !b.paid && now() < Number(b.deadline)) actions.push(`<button data-act="fund" data-id="${id}">Add ${T.symbol}</button><span class="fund-box" data-fund-box="${id}" hidden><input type="number" inputmode="decimal" min="0" step="any" placeholder="1000" aria-label="${T.symbol} to add"><button class="go" data-act="fund" data-id="${id}">Add</button></span>`);
-  if (!b.paid && now() > graceEnd && mine > 0n) actions.push(`<button data-act="refund" data-id="${id}">Take back ${fmt(mine)} ${T.symbol}</button>`);
-  const open = !b.paid && !blocked && now() <= Number(b.deadline);
-  const share = slugOk ? shareText({ id, b, name: project?.name ?? slug, open }) : null;
+  if (!pending && !blocked && !b.paid && !retired && now() < Number(b.deadline)) actions.push(`<button data-act="fund" data-id="${id}">Add ${T.symbol}</button><span class="fund-box" data-fund-box="${id}" hidden><input type="number" inputmode="decimal" min="0" step="any" placeholder="1000" aria-label="${T.symbol} to add"><button class="go" data-act="fund" data-id="${id}">Add</button></span>`);
+  if (!b.paid && (retired || now() > graceEnd) && mine > 0n) actions.push(`<button data-act="refund" data-id="${id}">Take back ${fmt(mine)} ${T.symbol}</button>`);
+  const open = !b.paid && !blocked && !retired && now() <= Number(b.deadline);
+  // An open bounty is shared only once HEY has answered for it with a count for this project (so the payout is tied).
+  const share = slugOk ? shareText({ id, b, name: project?.name ?? slug, open: open && signed }) : null;
   if (share) actions.push(`<a class="share" href="${esc(xIntent(share))}" target="_blank" rel="noopener">Share on X</a>`);
   // Tell the builder: once HEY has been read for the card, on a bounty that can still be met or is met and in window.
-  if (slugOk && !pending && !blocked && (open || (met && inWindow))) {
+  if (slugOk && signed && !pending && !blocked && !retired && (open || (met && inWindow))) {
     const tell = tellText({ id, b, name: project?.name ?? slug, handle: officialHandle(project), have });
     actions.push(`<a class="share" href="${esc(xIntent(tell))}" target="_blank" rel="noopener">Tell the builder</a>`);
   }
@@ -1027,19 +1181,23 @@ async function act(kind, id) {
   if (kind === 'fund') {
     const box = document.querySelector(`[data-fund-box="${id}"]`);
     if (box && box.hidden) { box.hidden = false; box.querySelector('input')?.focus(); return; }
-    const v = box?.querySelector('input')?.value?.trim();
-    if (!v || Number(v) <= 0) throw new Error(`Enter how much ${T.symbol} to add.`);
+    const amount = parseAmount(box?.querySelector('input')?.value);
+    if (amount === null) throw new Error(`Enter how much ${T.symbol} to add, as a plain number above 0.`);
+    if (await readRetired()) throw new Error(RETIRED_MESSAGE);
     const [b, slug] = await Promise.all([
       pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'bounty', args: [BigInt(id)] }),
       pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'slugOf', args: [BigInt(id)] }),
     ]);
     if (!bountySlugOk(slug, b.project)) throw new Error('This bounty cannot be released — the slug it was opened with is not a HEY slug — so nothing more can be added.');
-    const amount = parseUnits(v, T.decimals);
+    // Asked again now, whatever the card showed when it was drawn: $WIF is added only to a payout HEY ties today.
+    const tie = await builderTie(slug, b.builder);
+    if (!tie.ok) throw new Error(tie.known ? `Nothing was added. ${tie.text}` : 'HEY can’t be reached right now, so nothing was added. Try again shortly.');
     const bal = await pub.readContract({ address: T.address, abi: ERC20, functionName: 'balanceOf', args: [account] });
     if (amount > bal) throw new Error(`You hold ${fmt(bal)} ${T.symbol}.`);
     await ensureAllowance(amount);
     await send({ address: CONFIG.escrow, abi: ABI, functionName: 'fund', args: [BigInt(id), amount] }, 'Add to bounty');
   } else if (kind === 'claim') {
+    if (await readRetired()) throw new Error(RETIRED_MESSAGE);
     const b = await pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'bounty', args: [BigInt(id)] });
     const slug = await pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'slugOf', args: [BigInt(id)] });
     if (!bountySlugOk(slug, b.project)) throw new Error('This bounty cannot be released — the slug it was opened with is not a HEY slug.');
@@ -1074,7 +1232,7 @@ function renderContract() {
   ].filter(([, a]) => a).map(([k, a]) => `<div><div class="k">${k}</div><a href="${addrUrl(a)}" target="_blank" rel="noopener">${a}</a></div>`).join('');
 }
 
-function fail(err) { toast(esc(err?.shortMessage ?? err?.message ?? String(err))); }
+function fail(err) { toast(String(err?.shortMessage ?? err?.message ?? err)); }
 $('#connect').addEventListener('click', () => connect().catch(fail));
 $('#account').addEventListener('click', (e) => { e.stopPropagation(); $('#accountMenu').hidden = !$('#accountMenu').hidden; });
 document.addEventListener('click', (e) => { if (!$('#accountMenu').hidden && !e.target.closest('#accountMenu')) $('#accountMenu').hidden = true; });

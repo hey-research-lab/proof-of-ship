@@ -1,6 +1,6 @@
 # app/vendor
 
-The two scripts the page loads besides its own, served from this site so the page runs no third-party script at
+The two scripts and two fonts the page loads besides its own, served from this site so the page runs no third-party script at
 runtime (`script-src 'self'`). Each is rebuilt from a pinned lockfile in [`vendor-build/`](../../vendor-build) and
 checked against [`SHA256SUMS`](SHA256SUMS).
 
@@ -8,6 +8,7 @@ checked against [`SHA256SUMS`](SHA256SUMS).
 |---|---|---|---|
 | `viem.js` | `viem` 2.21.55 | `vendor-build/viem/entry.js` — only the functions `app.js` imports | esbuild 0.25.12 |
 | `walletconnect.js` | `@walletconnect/ethereum-provider` 2.26.0 (with `@reown/appkit` 1.8.19 and its tree as locked) | `vendor-build/walletconnect/entry.js` — `EthereumProvider` | esbuild 0.25.12 |
+| `fonts/Geist-Variable.woff2`, `fonts/GeistMono-Variable.woff2`, `fonts/OFL.txt` | `geist` 1.7.2 (Vercel, SIL Open Font License 1.1) | copied as is from the npm package's `dist/fonts/` and `LICENSE.txt` | — |
 
 ## Rebuild and check
 
@@ -25,7 +26,12 @@ node_modules/.bin/esbuild entry.js --bundle --format=esm --minify --outfile=out.
 ```
 
 then writes `viem.js` (the two-line licence header above the bundle) and `walletconnect.js` (the bundle as is) here,
-and runs `shasum -a 256 -c SHA256SUMS`. A rebuild that does not match fails.
+and runs `shasum -a 256 -c SHA256SUMS`, which also checks the fonts. A rebuild that does not match fails.
+
+The fonts are not built: they are the files of the `geist` 1.7.2 npm package (`npm pack geist@1.7.2`, integrity
+`sha512-Gu5lDFa3pLRyoBlBPf0QIFHVdWAnpco7fS1bJm41jyLPFoguBgiubseUN2oLXMgqZ7uxAxDoXcHMhCY/fOTTgg==`), so the page loads no
+third-party stylesheet (`style-src 'self' 'unsafe-inline'`, `font-src 'self'`; WalletConnect's modal also loads its own
+fonts from `https://fonts.reown.com`).
 
 - `npm ci` installs exactly what each `package-lock.json` names and never runs a package's install scripts.
 - The WalletConnect lockfile was resolved with `npm install --before=2026-10-10T00:00:00Z`, so no package in its tree
