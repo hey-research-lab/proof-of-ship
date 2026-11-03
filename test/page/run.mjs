@@ -324,6 +324,10 @@ async function rhRpc(route) {
     if (q.method === 'eth_getLogs') {
       const f = q.params[0];
       rh.logReads.push(f);
+      // Robinhood Chain's node: 2,000,000 blocks a request with no topics, 100,000 with a list of topics in a position.
+      const span = Number(f.toBlock) - Number(f.fromBlock) + 1;
+      const listed = (f.topics ?? []).some((x) => Array.isArray(x) && x.length > 1);
+      if (span > (listed ? 100_000 : 2_000_000)) return { jsonrpc: '2.0', id: q.id, error: { code: -32602, message: `query spans ${span} blocks, but only ${listed ? 100000 : 2000000} are allowed for this request` } };
       return ok(rhLogs().filter((l) => Number(l.blockNumber) >= Number(f.fromBlock) && Number(l.blockNumber) <= Number(f.toBlock)).map(({ at, ...l }) => l));
     }
     if (q.method === 'eth_call') { try { return ok(rhCall(q.params[0].to, q.params[0].data)); } catch (e) { return { jsonrpc: '2.0', id: q.id, error: { code: -32000, message: e.message } }; } }

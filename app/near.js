@@ -1,4 +1,4 @@
-import { formatUnits, parseUnits, getAddress, isAddress, keccak256, recoverTypedDataAddress, stringToBytes } from './vendor/viem.js?v=8';
+import { formatUnits, parseUnits, getAddress, isAddress, keccak256, recoverTypedDataAddress, stringToBytes } from './vendor/viem.js?v=9';
 import { NEAR } from './near-config.js?v=1';
 import { badge, chainReady, emitStats, placeCard, removeCards } from './lib.js?v=1';
 

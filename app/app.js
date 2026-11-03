@@ -1,6 +1,6 @@
 import {
   createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits, getAddress, isAddress, keccak256, recoverTypedDataAddress, stringToBytes,
-} from './vendor/viem.js?v=8';
+} from './vendor/viem.js?v=9';
 import { CONFIG } from './config.js?v=8';
 import { badge, chainReady, emitStats, placeCard, removeCards, span } from './lib.js?v=1';
 

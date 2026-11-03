@@ -1,1 +1,1 @@
-export { createPublicClient, createWalletClient, custom, domainSeparator, formatUnits, getAddress, hashTypedData, http, isAddress, keccak256, parseUnits, recoverAddress, recoverTypedDataAddress, stringToBytes } from 'viem';
+export { createPublicClient, createWalletClient, custom, decodeEventLog, domainSeparator, formatUnits, getAddress, hashTypedData, http, isAddress, keccak256, parseUnits, recoverAddress, recoverTypedDataAddress, stringToBytes } from 'viem';

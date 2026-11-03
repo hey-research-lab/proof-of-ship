@@ -1,4 +1,4 @@
-import { createPublicClient, domainSeparator, formatUnits, getAddress, hashTypedData, http, isAddress, keccak256, recoverAddress, stringToBytes } from './vendor/viem.js?v=8';
+import { createPublicClient, decodeEventLog, domainSeparator, formatUnits, getAddress, hashTypedData, http, isAddress, keccak256, recoverAddress, stringToBytes } from './vendor/viem.js?v=9';
 import { CONFIG } from './config.js?v=8';
 import { NEAR } from './near-config.js?v=1';
 import { badge, setFilter, setOrder, statsOf } from './lib.js?v=1';
@@ -198,12 +198,17 @@ async function rhActivity() {
     if (++requests > 60) throw new Error('Too many log reads.');
     const to = from + span - 1n > head ? head : from + span - 1n;
     let page;
-    try { page = await pub.getContractEvents({ address: CONFIG.escrow, abi: ABI, fromBlock: from, toBlock: to }); } catch (e) {
+    // No topic filter: Robinhood Chain's node allows 2,000,000 blocks a request without one, 100,000 with a list of
+    // event topics. The escrow's logs are few, so they are read whole and decoded here.
+    try { page = await pub.getLogs({ address: CONFIG.escrow, fromBlock: from, toBlock: to }); } catch (e) {
       if (span <= 10_000n) throw e;
       span /= 2n;
       continue;
     }
-    logs.push(...page);
+    for (const log of page) {
+      if (log.removed) continue;
+      try { logs.push({ ...log, ...decodeEventLog({ abi: ABI, data: log.data, topics: log.topics }) }); } catch { /* not one of the escrow's events */ }
+    }
     from = to + 1n;
   }
   const slugs = new Map(), decimals = CONFIG.token.decimals;
