@@ -13,6 +13,7 @@
 
 <p align="center">
   <a href="https://hey-research-lab.github.io/proof-of-ship/"><b>Open the app</b></a> ·
+  <a href="https://hey-research-lab.github.io/proof-of-ship/?chain=near"><b>Open it on NEAR</b></a> ·
   <a href="https://hey-research-lab.github.io/proof-of-ship/demo.html"><b>Watch the demo</b></a> ·
   <a href="https://worldisflat.fun/build/projects/proof-of-ship"><b>Follow on World is Flat</b></a> ·
   <a href="https://heyresearch.xyz"><b>Hey Research Lab</b></a>
@@ -21,6 +22,11 @@
 **Proof of Ship** is an escrow on Robinhood Chain that pays builders in $WIF for shipping, not for promising. Anyone
 locks $WIF behind a team, and it is released only when [Hey Research Lab](https://heyresearch.xyz) counts real ships
 for that team, each with its public source; if the target is not met by the deadline, every backer takes their $WIF back.
+
+The same page also runs **Proof of Ship on NEAR**: USDC bounties in the escrow
+[`escrow.heyresearch.near`](https://nearblocks.io/address/escrow.heyresearch.near)
+([source](https://github.com/hey-research-lab/proof-of-ship-near)), released on the same signed count. See
+[On NEAR](#on-near-usdc).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/stats-dark.svg">
@@ -52,6 +58,42 @@ for that team, each with its public source; if the target is not met by the dead
     <img alt="The Proof of Ship app: the hero, the live stats and the three steps" src="docs/app-light.png" width="100%">
   </picture>
 </p>
+
+## On NEAR (USDC)
+
+Built for the NEAR HACKATHON. Press **NEAR** at the top of the page, or open
+[hey-research-lab.github.io/proof-of-ship/?chain=near](https://hey-research-lab.github.io/proof-of-ship/?chain=near).
+Robinhood Chain stays the default and works exactly as before.
+
+| Do | See |
+| :-- | :-- |
+| Open the page with `?chain=near` | The NEAR view: USDC in the escrow, open bounties, paid to builders and bounties on NEAR, read live from `escrow.heyresearch.near` over public NEAR RPC (`get_config`, `bounty_count`, `get_bounties`, `ft_balance_of`). No wallet needed. |
+| Type `predict` in **Project on HEY** and pick predict FWA | The payout address fills in from HEY's tie route, with the NEAR account it pays: the address in lower case, `0x420944b441715e34dd672ae0eb4526a7ad7d1eef`. The page then asks HEY's attestation route for a signature with `escrow=near:escrow.heyresearch.near` and checks it recovers HEY's attester under the NEAR domain (chain 397, `salt = keccak256("escrow.heyresearch.near")`). |
+| The same, while HEY is not signing for NEAR yet | A banner and the payout hint say so plainly, and **Open bounty** sends nothing: no USDC is locked behind a payout HEY cannot sign. |
+| Switch **Payout** to NEAR Intents | The preview says the USDC goes into NEAR Intents (`intents.near`) for the same `0x…` account. |
+| **Connect NEAR wallet** (Meteor first, or MyNearWallet), then **Open bounty** | Prompt 1: `create(builder, slug, min_ships, deadline, payout)` on the escrow with 0.01 NEAR for storage (the unused part comes back). The preview then shows **Fund #N with … USDC**. |
+| Press **Fund #N with … USDC** | Prompt 2: `ft_transfer_call` on USDC to the escrow with `msg` `{"action":"fund","id":N}` and 1 yoctoNEAR. The bounty card shows the USDC locked. Anyone can add more with **Add USDC**. |
+| On a bounty whose target is met, press **Release to builder** | "HEY counts N ships" with each ship's evidence link, after the escrow's own `recover_signer` view answered `is_attester: true` for HEY's signature. **Submit the claim** sends `claim(id, attestation, signature)` with 0.00125 NEAR (the builder's USDC storage, returned if not needed) and 150 TGas. Anyone can submit it: the recipient is fixed by the signature. |
+| After the deadline plus 3 days, unclaimed, with the wallet you funded from | **Take back** with exactly what you locked: `refund(id)`. |
+| `curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"escrow.heyresearch.near","method_name":"get_config","args_base64":"e30="}}'` | The escrow's fixed config as bytes of JSON: attester `0x2b30…5760`, USDC, chain id 397, guardian `heyresearch.near`, intents `intents.near`. |
+| `cd test/page && npm ci && npx playwright-core install chromium && node run.mjs` | 69 checks pass against mocked chains, a mocked HEY and test wallets: the Robinhood Chain flow up to its first wallet prompt, and the whole NEAR flow (not signing, then open, fund, claim and refund), plus screenshots at 1280 and 400 px, light and dark, in `test/page/shots/`. |
+
+**Where the money goes.** HEY's signature names the builder by an EVM address. The builder is paid at the NEAR
+eth-implicit account of that address, `0x` and its 40 hex characters in lower case, which the same Ethereum wallet
+controls; the escrow registers it with USDC if needed, so it does not have to exist first. With the NEAR Intents
+payout, the USDC sits in `intents.near` under that same `0x…` account, for the builder to withdraw cross-chain.
+
+| | NEAR mainnet |
+| :-- | :-- |
+| **Escrow** | [`escrow.heyresearch.near`](https://nearblocks.io/address/escrow.heyresearch.near), no full-access key left on it · [source](https://github.com/hey-research-lab/proof-of-ship-near) |
+| **Token** | USDC on NEAR, [`17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1`](https://nearblocks.io/address/17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1) (6 decimals) |
+| **Attester** (Hey Research Lab) | `0x2b309b352Ff49d04912Ca34984B27a5481325760`, the same key as on Robinhood Chain, under a NEAR-only domain |
+| **Guardian** (can only retire) | [`heyresearch.near`](https://nearblocks.io/address/heyresearch.near) |
+| **HEY routes** | [`/api/v1/proof-of-ship/tie?slug=`](https://heyresearch.xyz/api/v1/proof-of-ship/tie?slug=predict-fwa) and `/api/v1/proof-of-ship/attestation?slug=&builder=&since=&until=&escrow=near:escrow.heyresearch.near` |
+
+No burn on NEAR: a USDC bounty pays the builder in full. The testnet escrow trusts a public test key, so HEY never
+signs for it and the page does not show it. The NEAR wallet code (NEAR Wallet Selector 10.1.4 with Meteor and
+MyNearWallet) is bundled into `app/vendor/near.js` from a pinned lockfile and loads only when a reader connects.
 
 ## Why you can trust it
 
@@ -140,12 +182,12 @@ nothing in an escrow.
 <details>
 <summary><b>The HEY endpoints the app uses</b></summary>
 
-All public, no key. The page reads them from your browser; it loads no third-party script (viem and WalletConnect are
-bundled into `app/vendor/` and the page sets `script-src 'self'`).
+All public, no key. The page reads them from your browser; it loads no third-party script (viem, WalletConnect and the
+NEAR Wallet Selector are bundled into `app/vendor/` and the page sets `script-src 'self'`).
 
 | Endpoint | For |
 | :-- | :-- |
-| `GET /api/v1/proof-of-ship/attestation?slug=&builder=&since=&until=&escrow=` | the signed count a release submits; also how the page checks a payout wallet as you type |
+| `GET /api/v1/proof-of-ship/attestation?slug=&builder=&since=&until=&escrow=` | the signed count a release submits; also how the page checks a payout wallet as you type. `escrow=0x3Da1…25f2` on Robinhood Chain, `escrow=near:escrow.heyresearch.near` on NEAR |
 | `GET /api/v1/proof-of-ship/tie?slug=` | the addresses HEY ties to a project, to fill in or offer the payout wallet |
 | `GET /api/projects/<slug>` | the project card on a bounty, and its official X for a post that tells the builder |
 | `GET /api/projects/<slug>/timeline` | the ships HEY counted, up to five on each card, with the day HEY first recorded each |
@@ -193,6 +235,7 @@ forge install
 forge test                                                              # 37 tests; the fork test skips without FORK_RPC
 FORK_RPC=https://rpc.mainnet.chain.robinhood.com forge test --mc Fork   # the full flow with the real $WIF
 python3 -m http.server -d app                                           # the app: static, no build step
+(cd test/page && npm ci && npx playwright-core install chromium && node run.mjs)  # page checks, both chains, mocked
 sh vendor-build/build.sh                                                # rebuild app/vendor and check SHA256SUMS
 node --no-warnings scripts/stats.mjs                                    # redraw this README's pictures and table
 ```

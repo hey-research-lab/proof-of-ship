@@ -1,0 +1,13 @@
+{
+  "name": "proof-of-ship-page-tests",
+  "private": true,
+  "type": "module",
+  "description": "Playwright checks of the Proof of Ship page, Robinhood Chain and NEAR, against mocked chains, a mocked HEY and test wallets. See README.md (Page checks).",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.62.1",
+    "viem": "2.21.55"
+  }
+}
