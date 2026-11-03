@@ -654,7 +654,7 @@ curl -s 'https://heyresearch.xyz/api/v1/proof-of-ship/tie?slug=predict-fwa'</pre
   <section>
     <div class="sh"><h2>What you're trusting on NEAR</h2></div>
     <div class="trust">
-      <div class="card"><h3>No owner, no admin key</h3><p>The escrow account keeps no full-access key, so nobody, HEY included, can redeploy its code. USDC moves only to the builder the bounty names, or back to the funder who put it in.</p></div>
+      <div class="card"><h3>No owner, no admin method</h3><p>The code moves USDC only to the builder the bounty names, or back to the funder who put it in. <span id="nKeys">The account’s access keys are read from NEAR when this view opens.</span></p></div>
       <div class="card"><h3>HEY’s key, checked on chain</h3><p>The attester is fixed at init. A signature counts only under this escrow’s own domain (chain 397, a salt of its account id), so a Robinhood Chain or testnet signature never verifies here.</p></div>
       <div class="card"><h3>A guardian that can only stop</h3><p><span class="mono">heyresearch.near</span> can retire the escrow: claims stop for good and every funder can refund at once. It can move no USDC.</p></div>
     </div>
@@ -679,6 +679,6 @@ curl -s 'https://heyresearch.xyz/api/v1/proof-of-ship/tie?slug=predict-fwa'</pre
   <p class="fine">NEAR mainnet. The wallet asks you to approve each transaction: opening a bounty, funding it, claiming or taking back. Reading bounties needs no wallet.</p>
 </dialog>
 <script type="module" src="./app.js?v=13"></script>
-<script type="module" src="./near.js?v=1"></script>
+<script type="module" src="./near.js?v=2"></script>
 </body>
 </html>

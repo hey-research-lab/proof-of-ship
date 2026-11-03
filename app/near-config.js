@@ -7,7 +7,7 @@ export const NEAR = {
   // Read-only JSON-RPC, tried in order. Neither needs a key.
   rpcs: ['https://free.rpc.fastnear.com', 'https://rpc.mainnet.near.org'],
   explorer: 'https://nearblocks.io',
-  // The escrow account. No full-access key is left on it, so nobody can redeploy its code.
+  // The escrow account. Whether a full-access key is still on it (so its code could be redeployed) is read live.
   escrow: 'escrow.heyresearch.near',
   // USDC on NEAR (NEP-141, 6 decimals), the one token the escrow holds.
   token: { account: '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1', symbol: 'USDC', decimals: 6 },

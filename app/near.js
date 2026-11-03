@@ -1026,8 +1026,17 @@ async function probeSigning() {
   if (notSigning(res)) renderSigningBanner(true);
   else if (res.status === 403 || res.status === 404) renderSigningBanner(false);
 }
+/** The escrow account's full-access keys, read live: none means nobody, HEY included, can redeploy its code. */
+async function renderKeys() {
+  const r = await rpc('query', { request_type: 'view_access_key_list', finality: 'final', account_id: NEAR.escrow });
+  const full = (r?.keys ?? []).filter((k) => k?.access_key?.permission === 'FullAccess').length;
+  $('#nKeys').textContent = full === 0
+    ? 'Its account holds no full-access key (read from NEAR just now), so nobody, HEY included, can redeploy its code.'
+    : `Its account still holds ${full} full-access key${full === 1 ? '' : 's'} (read from NEAR just now): until the operator deletes ${full === 1 ? 'it' : 'them'}, trust the operator as well as the code.`;
+}
 async function start() {
   renderContract();
+  renderKeys().catch(() => { $('#nKeys').textContent = 'Its access keys could not be read just now.'; });
   renderPreview();
   probeSigning().catch(() => undefined);
   await restoreWallet().catch(() => undefined);

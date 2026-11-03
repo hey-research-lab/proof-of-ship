@@ -202,6 +202,7 @@ async function nearSend(tx) {
 async function nearRpc(route) {
   const body = JSON.parse(route.request().postData() ?? '{}');
   const reply = (result) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ jsonrpc: '2.0', id: body.id, result }) });
+  if (body.method === 'query' && body.params.request_type === 'view_access_key_list') return reply({ keys: [{ public_key: 'ed25519:test', access_key: { nonce: 1, permission: 'FullAccess' } }] });
   if (body.method === 'block') return reply({ header: { timestamp: String(BigInt(NOW()) * 1_000_000_000n), height: 1 } });
   if (body.method === 'query' && body.params.request_type === 'call_function') {
     const args = JSON.parse(Buffer.from(body.params.args_base64, 'base64').toString() || '{}');
@@ -347,6 +348,7 @@ seedNear();
   check(page.url().includes('chain=near'), 'the switch writes ?chain=near');
   check(await page.isVisible('#nearView') && await page.isHidden('#open'), 'NEAR is shown and Robinhood Chain hidden');
   check(await until(async () => (await text(page, '#nsCount')) === '2'), 'the escrow’s bounty_count reads 2');
+  check(await until(async () => /still holds 1 full-access key/.test(await text(page, '#nKeys'))), 'the trust card says the account still holds 1 full-access key');
   check((await text(page, '#nsLocked')).startsWith('150'), 'USDC in the escrow: 150 (ft_balance_of)');
   check(await until(async () => await page.isVisible('#nSigning')), 'a banner says HEY is not signing for NEAR yet');
   check(await until(async () => /HEY not signing for NEAR yet/.test(await text(page, '#near-bounty-1'))), 'the open bounty says so instead of a count');

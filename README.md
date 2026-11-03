@@ -76,7 +76,7 @@ Robinhood Chain stays the default and works exactly as before.
 | On a bounty whose target is met, press **Release to builder** | "HEY counts N ships" with each ship's evidence link, after the escrow's own `recover_signer` view answered `is_attester: true` for HEY's signature. **Submit the claim** sends `claim(id, attestation, signature)` with 0.00125 NEAR (the builder's USDC storage, returned if not needed) and 150 TGas. Anyone can submit it: the recipient is fixed by the signature. |
 | After the deadline plus 3 days, unclaimed, with the wallet you funded from | **Take back** with exactly what you locked: `refund(id)`. |
 | `curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"escrow.heyresearch.near","method_name":"get_config","args_base64":"e30="}}'` | The escrow's fixed config as bytes of JSON: attester `0x2b30…5760`, USDC, chain id 397, guardian `heyresearch.near`, intents `intents.near`. |
-| `cd test/page && npm ci && npx playwright-core install chromium && node run.mjs` | 69 checks pass against mocked chains, a mocked HEY and test wallets: the Robinhood Chain flow up to its first wallet prompt, and the whole NEAR flow (not signing, then open, fund, claim and refund), plus screenshots at 1280 and 400 px, light and dark, in `test/page/shots/`. |
+| `cd test/page && npm ci && npx playwright-core install chromium && node run.mjs` | 70 checks pass against mocked chains, a mocked HEY and test wallets: the Robinhood Chain flow up to its first wallet prompt, and the whole NEAR flow (not signing, then open, fund, claim and refund), plus screenshots at 1280 and 400 px, light and dark, in `test/page/shots/`. |
 
 **Where the money goes.** HEY's signature names the builder by an EVM address. The builder is paid at the NEAR
 eth-implicit account of that address, `0x` and its 40 hex characters in lower case, which the same Ethereum wallet
@@ -85,7 +85,7 @@ payout, the USDC sits in `intents.near` under that same `0x…` account, for the
 
 | | NEAR mainnet |
 | :-- | :-- |
-| **Escrow** | [`escrow.heyresearch.near`](https://nearblocks.io/address/escrow.heyresearch.near), no full-access key left on it · [source](https://github.com/hey-research-lab/proof-of-ship-near) |
+| **Escrow** | [`escrow.heyresearch.near`](https://nearblocks.io/address/escrow.heyresearch.near) · [source](https://github.com/hey-research-lab/proof-of-ship-near). It still holds one full-access key until the operator deletes it; the page reads the account's keys live and says how many |
 | **Token** | USDC on NEAR, [`17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1`](https://nearblocks.io/address/17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1) (6 decimals) |
 | **Attester** (Hey Research Lab) | `0x2b309b352Ff49d04912Ca34984B27a5481325760`, the same key as on Robinhood Chain, under a NEAR-only domain |
 | **Guardian** (can only retire) | [`heyresearch.near`](https://nearblocks.io/address/heyresearch.near) |
