@@ -326,6 +326,30 @@ pre.cmd{margin:6px 0 0;padding:10px 12px;border:1px solid var(--line);border-rad
 .links{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:14px;font-size:14px}
 .links a{color:var(--sec)}
 @media (max-width:880px){.how{grid-template-columns:1fr}}
+.pace{color:var(--sec)}
+.pace .muted{display:block;margin-top:4px;color:var(--mut)}
+.pace b.likely{color:var(--acc)}.pace b.tight{color:var(--amber)}.pace b.unlikely{color:var(--red)}
+.when{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin:0;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.when div{background:var(--surface);padding:10px 14px;min-width:0}
+.when dt{font-size:12px;color:var(--mut)}
+.when dd{margin:2px 0 0;font-size:14px;font-weight:550;font-variant-numeric:tabular-nums}
+.fact.left .v{font-variant-numeric:tabular-nums}
+.counted{display:grid;gap:8px}
+.counted>.k{font-size:12px;color:var(--mut)}
+a.link-btn{display:inline-flex;align-items:center;font-size:13.5px;font-weight:550;line-height:1;padding:9px 12px;border-radius:10px;border:1px solid var(--line2);background:var(--surface);color:var(--sec);text-decoration:none}
+a.link-btn:hover{border-color:var(--ink)}
+dialog#nConfirm{border:1px solid var(--line2);border-radius:18px;background:var(--surface);color:var(--ink);padding:20px;width:min(520px,calc(100% - 32px));box-shadow:0 30px 80px -20px rgba(0,0,0,.5)}
+dialog#nConfirm::backdrop{background:rgba(0,0,0,.45)}
+#nConfirm p{margin:0 0 12px;font-size:15px;line-height:1.5;color:var(--sec)}
+#nConfirm p b{color:var(--ink);font-weight:650}
+#nConfirm p.big{font-size:17px;color:var(--ink)}
+#nConfirm p.big .muted{display:block;font-size:14px;color:var(--sec);margin-top:4px}
+#nConfirm dl{margin:4px 0 14px;display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+#nConfirm dl div{background:var(--bg2);padding:9px 12px;display:grid;gap:2px}
+#nConfirm dt{font-size:12px;color:var(--mut)}
+#nConfirm dd{margin:0;font-size:13.5px;font-family:var(--mono);overflow-wrap:anywhere}
+#nConfirm .fine{font-size:13px;color:var(--mut)}
+@media (max-width:520px){.when{grid-template-columns:1fr}.when div{display:flex;justify-content:space-between;gap:12px}.when dd{margin:0;text-align:right}}
 
 @media (max-width:880px){
   .hero,.composer{grid-template-columns:1fr}
@@ -534,7 +558,7 @@ pre.cmd{margin:6px 0 0;padding:10px 12px;border:1px solid var(--line);border-rad
   <section id="near-open">
     <div class="sh"><h2>Open a bounty on NEAR</h2><p>Two wallet prompts: open, then fund.</p></div>
     <div class="composer">
-      <form id="nCreate" class="card" novalidate>
+      <form id="nCreate" class="card" novalidate autocomplete="off">
         <div class="group">
           <div class="legend">Who you're backing</div>
           <div class="grid2">
@@ -559,6 +583,7 @@ pre.cmd{margin:6px 0 0;padding:10px 12px;border:1px solid var(--line);border-rad
               <label for="nMinShips">Ships needed</label>
               <div class="input"><input id="nMinShips" class="has-unit" type="number" inputmode="numeric" min="1" max="1000" value="3" required><span class="unit">ships</span></div>
               <div class="hint">Counted by HEY after the bounty opens.</div>
+              <div class="hint pace" id="nPace" aria-live="polite"></div>
             </div>
             <div class="f">
               <label id="nDaysLabel">Time to ship</label>
@@ -568,7 +593,7 @@ pre.cmd{margin:6px 0 0;padding:10px 12px;border:1px solid var(--line);border-rad
                 <button type="button" data-days="30" aria-pressed="false">30 days</button>
                 <button type="button" data-days="custom" aria-pressed="false">Custom</button>
               </div>
-              <div class="input" id="nDaysCustom" hidden><input id="nDays" class="has-unit" type="number" inputmode="numeric" min="1" max="365" value="14" required aria-label="Days to ship, 1 to 365"><span class="unit">days</span></div>
+              <div class="input" id="nDaysCustom" hidden><input id="nDays" class="has-unit" type="number" inputmode="numeric" min="1" max="365" value="14" required autocomplete="off" aria-label="Days to ship, 1 to 365"><span class="unit">days</span></div>
               <div class="hint" id="nDaysHint"></div>
             </div>
             <div class="f">
@@ -673,12 +698,21 @@ curl -s 'https://heyresearch.xyz/api/v1/proof-of-ship/tie?slug=predict-fwa'</pre
   <div id="walletList" class="wallet-list"></div>
   <p class="fine">Robinhood Chain (4663) is added to your wallet if it isn't there yet. Reading bounties needs no wallet.</p>
 </dialog>
+<dialog id="nConfirm" aria-labelledby="nConfirmTitle" aria-describedby="nConfirmBy">
+  <div class="dlg-head"><h2 id="nConfirmTitle">Check before you sign</h2><button type="button" id="nConfirmClose" aria-label="Go back">✕</button></div>
+  <p id="nConfirmLead"></p>
+  <p class="big" id="nConfirmBy"></p>
+  <p id="nConfirmAfter"></p>
+  <dl id="nConfirmFacts"></dl>
+  <p class="fine">Two wallet prompts follow: this one opens the bounty, then step 2 locks the USDC. Nothing is sent unless you confirm.</p>
+  <div class="actions"><button class="go" type="button" id="nConfirmYes">Confirm and open bounty</button><button type="button" id="nConfirmNo">Go back</button></div>
+</dialog>
 <dialog id="nearWallets" class="wallets" aria-labelledby="nearWalletsTitle">
   <div class="dlg-head"><h2 id="nearWalletsTitle">Connect a NEAR wallet</h2><button id="nearWalletsClose" aria-label="Close">✕</button></div>
   <div id="nearWalletList" class="wallet-list"></div>
   <p class="fine">NEAR mainnet. The wallet asks you to approve each transaction: opening a bounty, funding it, claiming or taking back. Reading bounties needs no wallet.</p>
 </dialog>
 <script type="module" src="./app.js?v=13"></script>
-<script type="module" src="./near.js?v=2"></script>
+<script type="module" src="./near.js?v=3"></script>
 </body>
 </html>

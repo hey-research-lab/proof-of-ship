@@ -44,6 +44,24 @@ const compact = (v) => {
 };
 const day = (s) => new Date(Number(s) * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const now = () => Math.floor(Date.now() / 1000);
+const pad2 = (n) => String(n).padStart(2, '0');
+/** "Tuesday, 18 November 2026, 19:48" for a unix time, in UTC or the reader's own time zone. */
+function when(s, timeZone = 'UTC') {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(new Date(Number(s) * 1000)).map((p) => [p.type, p.value]));
+  return `${parts.weekday}, ${parts.day} ${parts.month} ${parts.year}, ${parts.hour}:${parts.minute}`;
+}
+/** "18 Nov 2026, 19:48 UTC". */
+const utcShort = (s) => { const d = new Date(Number(s) * 1000); return `${day(s)}, ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())} UTC`; };
+const dayMonth = (s) => new Date(Number(s) * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const localZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } };
+const times = (n) => (Number(n) === 1 ? 'once' : `${n} times`);
+/** "3d 04h 12m", "4h 05m", "12m": a span of seconds, always the same shape for the same number of units. */
+function span(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  return d ? `${d}d ${pad2(h)}h ${pad2(m)}m` : h ? `${h}h ${pad2(m)}m` : `${m}m`;
+}
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 const httpsUrl = (url) => { try { const u = new URL(String(url)); return u.protocol === 'https:' ? u.href : null; } catch { return null; } };
 const initial = (name) => (String(name ?? '').match(/[\p{L}\p{N}]/u)?.[0] ?? '').toUpperCase();
@@ -168,6 +186,23 @@ async function heyAttestation(slug, builder, since, until) {
  */
 const notSigning = (res) => Boolean(res) && ((res.status === 400 && /escrow/i.test(String(res.body?.message ?? ''))) || res.status === 503);
 const NOT_SIGNING_TEXT = 'HEY is not signing for the NEAR escrow right now, so no NEAR bounty can be released until it does. Refunds after the deadline never need HEY.';
+/**
+ * HEY's unsigned count for one closed window, by the payout rule (`/api/v1/proof-of-ship/ships`): `{ ships }`, or
+ * `{ ships: null, reason, reasonText }` when HEY can't measure the window (never read as 0), or `{ error }`.
+ */
+async function heyShips(slug, since, until) {
+  const u = new URL(`${NEAR.hey}/api/v1/proof-of-ship/ships`);
+  u.searchParams.set('slug', slug);
+  u.searchParams.set('since', String(since));
+  u.searchParams.set('until', String(until));
+  let r;
+  try { r = await fetch(u); } catch { return { error: true }; }
+  const j = r.ok ? await r.json().catch(() => null) : null;
+  if (!j || typeof j !== 'object') return { error: true };
+  if (Number.isInteger(j.ships) && j.ships >= 0) return { ships: j.ships };
+  if (j.ships === null) return { ships: null, reason: typeof j.reason === 'string' ? j.reason : '', reasonText: typeof j.reasonText === 'string' ? j.reasonText : '' };
+  return { error: true };
+}
 async function shipTitles(slug, ids) {
   const want = new Set(ids);
   if (!want.size) return [];
@@ -486,13 +521,28 @@ const PAYOUT_HINT = {
   intents: 'Deposited into NEAR Intents (intents.near) for the builder’s 0x… account, which the same Ethereum wallet controls. From there the builder withdraws to another chain.',
 };
 let pendingFund = null; // { id, amount, slug }: a bounty this page just opened, waiting for step 2
+let shownDays = null; // the days the preview last showed, checked again when Open is pressed
+let customDays = false;
+/**
+ * The pressed preset always says what the days field holds: a value a reload or the browser put back (say 1 while
+ * "14 days" looked pressed) shows as Custom with the field open, never behind a preset that reads otherwise.
+ */
+function syncDays(days) {
+  const preset = !customDays && ['7', '14', '30'].includes(String(days)) ? String(days) : 'custom';
+  if (preset === 'custom') customDays = true;
+  pressPreset(preset);
+  $('#nDaysCustom').hidden = preset !== 'custom';
+}
 function renderPreview() {
   const v = readForm();
+  shownDays = v.days;
+  syncDays($('#nDays').value);
+  renderPace();
   $('#nAmt').innerHTML = `${fmt(v.amount)}<small>${T.symbol}</small>`;
   $('#nPay').textContent = `${fmt(v.amount)} ${T.symbol}`;
   $('#nShips').textContent = `${v.minShips || '—'} ship${v.minShips === 1 ? '' : 's'}`;
   const by = now() + v.days * 86400;
-  $('#nBy').textContent = v.days ? day(by) : '—';
+  $('#nBy').textContent = v.days ? `${day(by)} · ${v.days} day${v.days === 1 ? '' : 's'}` : '—';
   $('#nRefund').textContent = v.days ? day(by + GRACE) : '—';
   $('#nDaysHint').textContent = v.days ? `Ships counted until ${day(by)}.` : '';
   $('#nPayoutHint').textContent = PAYOUT_HINT[v.payout];
@@ -521,6 +571,58 @@ function renderPreview() {
     $('#nFundBtn').disabled = busy;
   } else step.hidden = true;
 }
+// ------------------------------------------------------------------ realistic target: HEY's count of the last 14 days
+const PACE_DAYS = 14;
+const paceCache = new Map(); // slug -> { until, res } for the last window read
+/** The last 14 days, closed and cut to the hour, so the route's 5-minute cache serves every reader the same answer. */
+const paceWindow = () => { const until = Math.floor((now() - 300) / 3600) * 3600; return { since: until - PACE_DAYS * 86400, until }; };
+async function loadPace(slug) {
+  const w = paceWindow();
+  if (paceCache.get(slug)?.until === w.until) return;
+  paceCache.set(slug, { until: w.until, res: null });
+  const res = await heyShips(slug, w.since, w.until);
+  if (paceCache.get(slug)?.until === w.until) paceCache.set(slug, { until: w.until, res });
+  if (readForm().slug === slug) renderPace();
+}
+/*
+ * The verdict, a rough guide from past shipping and never a forecast: at the last 14 days' pace the project would
+ * ship expected = shipped × days ÷ 14 in the bounty's time. The target looks likely when it is at most 3/4 of that,
+ * tight up to 5/4 of it, unlikely above it, and unlikely whenever HEY counted none.
+ */
+function paceVerdict(shipped, target, days) {
+  const expected = (shipped * days) / PACE_DAYS;
+  if (shipped === 0 || target > expected * 1.25) return 'unlikely';
+  return target <= expected * 0.75 ? 'likely' : 'tight';
+}
+const PACE_REASONS = {
+  window_before_hey_read: 'HEY started reading this project less than 14 days ago',
+  activity_not_measured: 'HEY does not read this project’s building right now',
+};
+function renderPace() {
+  const el = $('#nPace');
+  if (!el) return;
+  const v = readForm();
+  const p = v.slug && isHeySlug(v.slug) ? projectCache.get(v.slug) : null;
+  const res = p ? paceCache.get(v.slug)?.res : undefined;
+  if (!p || res === undefined) { el.replaceChildren(); return; }
+  const name = esc(p.name ?? v.slug);
+  const rule = '<span class="muted">HEY counts at most one ship of each kind a day, and a code week only once that week has ended.</span>';
+  if (res === null) { el.innerHTML = `Reading HEY’s count for ${name} over the last 14 days…`; return; }
+  if (res.error) { el.innerHTML = `HEY’s count for ${name} over the last 14 days could not be read just now.`; return; }
+  if (res.ships === null) {
+    const why = String(res.reasonText || PACE_REASONS[res.reason] || 'HEY gave no reason').trim().replace(/\.$/, '');
+    el.innerHTML = `<span data-pace="null">HEY can’t measure ${name}’s shipping right now. ${esc(why.replace(/^./, (c) => c.toUpperCase()))}.</span> ${rule}`;
+    return;
+  }
+  const n = res.ships;
+  let out = `By HEY’s count, ${name} shipped ${times(n)} in the last 14 days (about ${num(n / 2, 1)} a week).`;
+  if (v.minShips >= 1 && v.days >= 1) {
+    const verdict = paceVerdict(n, v.minShips, v.days);
+    out += ` A target of ${v.minShips} in ${v.days} day${v.days === 1 ? '' : 's'} looks <b class="${verdict}" data-pace="${verdict}">${verdict}</b>.`;
+  }
+  el.innerHTML = `${out} ${rule}`;
+}
+
 let tieState = { slug: null, tie: null };
 let tieCheck = { slug: null, builder: null, ok: null, notSigning: false };
 let autofilled = null;
@@ -580,6 +682,7 @@ const checkSlug = debounce(async () => {
     wireLogos(card);
     card.className = 'project on';
     heyTie(slug).then((t) => { if (readForm().slug === slug) setTie(slug, t); }).catch(() => undefined);
+    loadPace(slug).catch(() => undefined);
   }
   renderPreview();
   checkBuilder();
@@ -606,13 +709,17 @@ form.addEventListener('input', (e) => {
   else if (e.target.id === 'nBuilder') { checkBuilder(); renderTie(); }
   renderPreview();
 });
-form.addEventListener('submit', (e) => { e.preventDefault(); runExclusive(openBounty); });
+// The days the preview showed are read before anything re-renders it, so Open can refuse a field that moved unseen.
+form.addEventListener('submit', (e) => { e.preventDefault(); const shown = shownDays; runExclusive(() => openBounty(shown)); });
+// A page brought back from the back-forward cache, or a field the browser refilled, is drawn again from the fields.
+window.addEventListener('pageshow', () => renderPreview());
 // Time to ship: 7 / 14 / 30 days or custom, writing only the days field.
 const daysInput = $('#nDays');
 const presetButtons = [...document.querySelectorAll('#nDaysPresets [data-days]')];
 const pressPreset = (which) => presetButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.days === which)));
 presetButtons.forEach((b) => b.addEventListener('click', () => {
   const custom = b.dataset.days === 'custom';
+  customDays = custom;
   pressPreset(b.dataset.days);
   $('#nDaysCustom').hidden = !custom;
   if (custom) { daysInput.focus(); daysInput.select(); } else daysInput.value = b.dataset.days;
@@ -697,8 +804,36 @@ async function chainDeadline(days) {
   const want = base + days * 86400 + DEADLINE_MARGIN;
   return Math.min(Math.max(want, base + MIN_DURATION + DEADLINE_MARGIN), base + MAX_DURATION);
 }
-async function openBounty() {
+/** The summary a funder confirms before Open signs anything: built from the exact deadline that will be sent. */
+function confirmOpen(s) {
+  const dlg = $('#nConfirm');
+  const zone = localZone();
+  const name = esc(s.name);
+  dlg.dataset.deadline = String(s.deadline);
+  dlg.dataset.days = String(s.days);
+  $('#nConfirmLead').innerHTML = `You’re locking <b>${fmt(s.amount)} ${T.symbol}</b> for <b>${name}</b>.`;
+  $('#nConfirmBy').innerHTML = `${name} must ship <b>${times(s.minShips)}</b> by <b data-utc>${esc(when(s.deadline))} UTC</b> <span class="muted" data-local>(${esc(when(s.deadline, zone))} in your time zone, ${esc(zone)}).</span>`;
+  $('#nConfirmAfter').innerHTML = `Claimable until <b>${esc(when(s.deadline + GRACE))} UTC</b>. If not, funders take it back from <b>${esc(when(s.deadline + GRACE + 1))} UTC</b>.`;
+  $('#nConfirmFacts').innerHTML = [
+    ['Time to ship', `${s.days} day${s.days === 1 ? '' : 's'} (about ${num((s.deadline - now()) / 86400, 1)} days from now)`],
+    ['Paid to', `${ethImplicit(s.builder)}${s.payout === 'intents' ? ' in NEAR Intents' : ' on NEAR'}`],
+    ['Deadline sent to the escrow', `${s.deadline} (unix seconds, as your wallet shows it)`],
+  ].map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (ok) => { if (settled) return; settled = true; if (dlg.open) dlg.close(); resolve(ok); };
+    $('#nConfirmYes').onclick = () => done(true);
+    $('#nConfirmNo').onclick = () => done(false);
+    $('#nConfirmClose').onclick = () => done(false);
+    dlg.addEventListener('close', () => done(false), { once: true });
+    dlg.showModal();
+    $('#nConfirmNo').focus();
+  });
+}
+const CONFIRM_MAX_AGE = 10 * 60; // a summary older than this is refused, never refreshed behind the reader's back
+async function openBounty(previewDays = shownDays) {
   const v = readForm();
+  if (v.days !== previewDays) { renderPreview(); throw new Error(`The days field holds ${v.days}, not the ${previewDays} the preview showed. Nothing was sent; check Time to ship and press Open bounty again.`); }
   const bad = (id, hintId, msg) => { const h = $(hintId); h.className = 'hint bad'; h.textContent = msg; $(id).scrollIntoView({ behavior: 'smooth', block: 'center' }); return new Error(msg); };
   if (!v.slug) throw bad('#nSlug', '#nSlugHint', 'Type the project’s slug, e.g. predict-fwa.');
   if (!isHeySlug(v.slug)) throw bad('#nSlug', '#nSlugHint', SLUG_FORM_MESSAGE);
@@ -715,9 +850,18 @@ async function openBounty() {
   await needWallet();
   const bal = await usdcBalance(account);
   if (v.amount > bal) throw new Error(`You hold ${fmt(bal)} ${T.symbol} on NEAR; lower the amount to lock.`);
+  // The deadline is computed once, shown, and that same number is sent: never computed again after the confirmation.
   const deadline = await chainDeadline(v.days);
   const builder = getAddress(v.builder);
-  const { hash, value } = await sendCall(NEAR.escrow, 'create', { builder, slug: v.slug, min_ships: v.minShips, deadline, payout: v.payout }, 30n * TGAS, CREATE_DEPOSIT, `Open bounty for ${v.slug} paying ${ethImplicit(builder)}`);
+  const summary = { ...v, builder, deadline, name: project.name ?? v.slug, shownAt: now() };
+  if (!(await confirmOpen(summary))) { toast('Nothing was sent.'); return; }
+  const again = readForm();
+  if (again.days !== summary.days) throw new Error(`The days field now holds ${again.days}, not the ${summary.days} the summary showed. Nothing was sent; check Time to ship and press Open bounty again.`);
+  if (again.slug !== v.slug || !sameHash(again.builder, v.builder) || again.minShips !== v.minShips || again.amount !== v.amount || again.payout !== v.payout) {
+    throw new Error('The terms changed after the summary was shown. Nothing was sent; press Open bounty again.');
+  }
+  if (now() - summary.shownAt > CONFIRM_MAX_AGE) throw new Error('That summary is more than 10 minutes old. Nothing was sent; press Open bounty again for a fresh deadline.');
+  const { hash, value } = await sendCall(NEAR.escrow, 'create', { builder, slug: v.slug, min_ships: v.minShips, deadline: summary.deadline, payout: v.payout }, 30n * TGAS, CREATE_DEPOSIT, `Open bounty for ${v.slug} paying ${ethImplicit(builder)}`);
   let id = Number.isInteger(value) ? value : null;
   if (id === null) id = await findMyNewBounty(v.slug, builder).catch(() => null);
   if (id === null) { toast(txDone('Bounty opened. Find it under Bounties, then fund it with Add USDC.', hash)); await load(); return; }
@@ -843,14 +987,18 @@ const KIND = {
   release: 'Release', code: 'Code week', contract_deploy: 'Contract deployed', contract_upgrade: 'Contract upgrade',
   build: 'Build', integration: 'Integration', announcement: 'Entry', contract_source: 'Contract source',
 };
-function evidenceList(body, ships, max = 5) {
+function evidenceList(body, ships, max = 5, byDate = false) {
   const ids = Array.isArray(body?.evidenceIds) ? body.evidenceIds : [];
   const urls = Array.isArray(body?.evidenceUrls) ? body.evidenceUrls : [];
   if (!ids.length) return '';
   const byId = new Map(ships.map((s) => [s.id, s]));
-  const items = ids.slice(0, max).map((evidenceId, i) => {
+  const at = (id) => { const t = Date.parse(byId.get(id)?.recordedAt ?? ''); return Number.isFinite(t) ? t : Infinity; };
+  // Each id keeps its own evidence URL; the timeline orders them by the day HEY recorded them, unread dates last.
+  const pairs = ids.map((id, i) => [id, urls[i]]);
+  if (byDate) pairs.sort((x, y) => at(x[0]) - at(y[0]));
+  const items = pairs.slice(0, max).map(([evidenceId, url]) => {
     const s = byId.get(evidenceId);
-    const evidence = httpsUrl(urls[i]);
+    const evidence = httpsUrl(url);
     const source = httpsUrl(s?.source);
     const recorded = Date.parse(s?.recordedAt ?? '');
     const when = Number.isFinite(recorded) ? `recorded ${esc(day(recorded / 1000))}` : 'recorded date not read';
@@ -860,6 +1008,48 @@ function evidenceList(body, ships, max = 5) {
   const rest = ids.length > max ? `<li><span>and ${ids.length - max} more</span></li>` : '';
   return `<ul class="ships">${items.join('')}${rest}</ul>`;
 }
+/** The card's countdown, by the reader's clock: what is left to ship, then to claim, then nothing. */
+function countdownParts(deadline, status) {
+  const t = now();
+  if (status === 'paid') return ['Time left', 'Paid out'];
+  if (status !== 'open') return ['Time left', 'Payout pending'];
+  if (retired === true) return ['Time left', 'Escrow retired'];
+  if (t < deadline) return ['Time left to ship', span(deadline - t)];
+  if (t <= deadline + GRACE) return ['Time left to claim', span(deadline + GRACE - t)];
+  return ['Time left', 'Closed'];
+}
+function tickCountdowns() {
+  document.querySelectorAll('#nearView [data-ncount]').forEach((el) => {
+    const [k, v] = countdownParts(Number(el.dataset.deadline), el.dataset.status);
+    const kEl = el.querySelector('.k'), vEl = el.querySelector('.v');
+    if (kEl.textContent !== k) kEl.textContent = k;
+    if (vEl.textContent !== v) vEl.textContent = v;
+  });
+}
+let ticking = false;
+/** Once a minute, on the minute: only the countdown's text changes, in a cell of fixed height. */
+function startCountdowns() {
+  if (ticking) return;
+  ticking = true;
+  setTimeout(() => { tickCountdowns(); setInterval(tickCountdowns, 60_000); }, (60 - new Date().getSeconds()) * 1000);
+}
+
+/** A ready post for X about one bounty, under 280 characters: the card's own facts, no price. */
+const PAGE_URL = 'https://hey-research-lab.github.io/proof-of-ship/';
+const cardUrl = (id) => `${PAGE_URL}?chain=near#near-bounty-${id}`;
+const X_MAX = 280;
+function xText(b, name) {
+  const link = cardUrl(b.id);
+  const build = (nm) => (b.status === 'paid'
+    ? `${nm} shipped ${times(b.ships)} and was paid ${fmt(b.paid_out)} ${T.symbol} on NEAR, released when @HeyResearch counted the ships on chain. #NEARHackathon ${link}`
+    : `I'm backing ${nm} on NEAR: ${fmt(b.total)} ${T.symbol} if they ship ${times(b.min_ships)} by ${dayMonth(b.deadline)}. Released only when @HeyResearch counts the ships on chain. #NEARHackathon ${link}`);
+  let nm = String(name).replace(/\s+/g, ' ').trim();
+  let text = build(nm);
+  if (text.length > X_MAX) { nm = `${nm.slice(0, Math.max(1, nm.length - (text.length - X_MAX) - 1))}…`; text = build(nm); }
+  return text;
+}
+const xIntent = (text) => `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
+
 function renderBounty(b, hey) {
   const { project = null, mine = 0n, att = null, signed = false, ships = [], pending = false } = hey;
   const need = b.min_ships;
@@ -901,6 +1091,8 @@ function renderBounty(b, hey) {
   if (open && (isRetired || now() > graceEnd) && mine > 0n) actions.push(`<button data-nact="refund" data-id="${b.id}">Take back ${fmt(mine)} ${T.symbol}</button>`);
   if (b.status === 'verified' && !isRetired) actions.push(`<button class="go" data-nact="release" data-id="${b.id}">Retry payout</button>`);
   if (b.status === 'verified' && b.payout === 'intents' && b.failed_payouts > 0) actions.push(`<button data-nact="release-direct" data-id="${b.id}">Pay to the NEAR account instead</button>`);
+  const postable = b.status === 'paid' || (open && funded && !isRetired && now() < b.deadline);
+  if (postable) actions.push(`<a class="link-btn" data-nx="${b.id}" href="${esc(xIntent(xText(b, name)))}" target="_blank" rel="noopener">Post on X</a>`);
   actions.push(`<button class="link-btn" type="button" data-ncopy="${b.id}">Copy link</button>`);
   const progressLabel = b.status === 'paid' ? `Paid ${fmt(b.paid_out)} ${T.symbol} on ${b.ships} ships HEY counted` : have === null ? 'Ships HEY counted' : `HEY counts ${have} of ${need} ships`;
   const claimBox = ready ? `<div class="claimbox" role="region" aria-label="Claim for bounty #${b.id}">
@@ -909,7 +1101,9 @@ function renderBounty(b, hey) {
       ${evidenceList(ready.body, ready.titles, 8)}
       <div class="actions"><button class="go" data-nact="confirm-claim" data-id="${b.id}">Submit the claim</button><button data-nact="cancel-claim" data-id="${b.id}">Cancel</button><span class="mono">${b.payout === 'intents' ? '200 TGas' : `150 TGas · ${formatNear(config?.token_storage_deposit)} NEAR storage, returned if not needed`}</span></div>
     </div>` : '';
-  const list = signed && !ready ? evidenceList(att.body, ships) : '';
+  const counted = signed && !ready ? evidenceList(att.body, ships, 10, true) : '';
+  const list = counted ? `<div class="counted"><div class="k">Ships HEY has counted so far, ${have} since ${esc(day(b.start))}</div>${counted}</div>` : '';
+  const [leftK, leftV] = countdownParts(b.deadline, b.status);
   return `<article class="card bounty" id="near-bounty-${b.id}"${pending ? ' data-pending="1"' : ''}>
     <div class="top">
       <div class="id">${logo(project?.logoUrl, name)}<div><span class="name">${esc(name)}</span><a class="slug" href="${NEAR.hey}/project/${encodeURIComponent(b.slug)}" target="_blank" rel="noopener">heyresearch.xyz/project/${esc(b.slug)}</a></div></div>
@@ -917,10 +1111,15 @@ function renderBounty(b, hey) {
     </div>
     <div class="facts">
       <div class="fact"><div class="k">Locked</div><div class="v">${fmt(b.total)} ${T.symbol}</div></div>
-      <div class="fact"><div class="k">Ship by</div><div class="v">${day(b.deadline)}</div></div>
+      <div class="fact left" data-ncount data-deadline="${b.deadline}" data-status="${esc(b.status)}"><div class="k">${esc(leftK)}</div><div class="v">${esc(leftV)}</div></div>
       <div class="fact"><div class="k">Payout</div><div class="v">${b.payout === 'intents' ? 'NEAR Intents' : 'NEAR account'}</div></div>
       <div class="fact"><div class="k">Pays</div><div class="v"><a class="mono" href="${esc(accountUrl(acct))}" target="_blank" rel="noopener">${esc(short(acct))}</a></div></div>
     </div>
+    <dl class="when">
+      <div><dt>Ship by</dt><dd data-when="ship">${esc(utcShort(b.deadline))}</dd></div>
+      <div><dt>Claim until</dt><dd data-when="claim">${esc(utcShort(graceEnd))}</dd></div>
+      <div><dt>Refunds from</dt><dd data-when="refund">${esc(utcShort(graceEnd + 1))}</dd></div>
+    </dl>
     <div class="progress">
       <div class="lbl"><span>${esc(progressLabel)}</span><span>${b.status === 'paid' ? '' : `target ${need}`}</span></div>
       <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${need}" aria-valuenow="${have ?? 0}"><i style="width:${pct}%"></i></div>
@@ -1038,6 +1237,7 @@ async function start() {
   renderContract();
   renderKeys().catch(() => { $('#nKeys').textContent = 'Its access keys could not be read just now.'; });
   renderPreview();
+  startCountdowns();
   probeSigning().catch(() => undefined);
   await restoreWallet().catch(() => undefined);
   if (!account) await load();
