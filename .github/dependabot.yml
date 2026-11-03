@@ -1,4 +1,4 @@
-# Keeps the SHA-pinned Actions current. Dependabot opens pull requests; a person merges them.
+# Keeps the SHA-pinned Actions current within their major version. Dependabot opens pull requests; a person merges them.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -8,3 +8,6 @@ updates:
     groups:
       actions:
         patterns: ['*']
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
