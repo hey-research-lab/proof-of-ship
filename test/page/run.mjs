@@ -249,6 +249,7 @@ async function nearTxApi(route) {
   const body = JSON.parse(route.request().postData() ?? '{}');
   const json = (status, b) => route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(b) });
   if (!near.txApi) return json(503, { error: 'unavailable' });
+  if (near.txApiFailures > 0) { near.txApiFailures--; return json(403, { error: 'busy' }); }
   if (u.pathname === '/v0/account' && body.account_id === NEAR_ESCROW) {
     const txs = [...near.events].sort((a, b) => b.at - a.at).map((e, i) => ({ account_id: NEAR_ESCROW, transaction_hash: e.hash, tx_block_height: 1000 + i, tx_block_timestamp: String(BigInt(e.at) * 1_000_000_000n), is_success: true }));
     return json(200, { account_txs: txs, txs_count: txs.length });
@@ -743,6 +744,16 @@ seedNear();
   await page.screenshot({ path: path.join(SHOTS, 'overview-desktop-light.png'), fullPage: false });
   await page.locator('#bounties-section').screenshot({ path: path.join(SHOTS, 'list-desktop-light.png') });
   await page.locator('#feed').screenshot({ path: path.join(SHOTS, 'feed-desktop-light.png') });
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+{
+  console.log('\n# FastNear refuses once: the feed asks again');
+  near.txApiFailures = 1;
+  const { page, ctx, errors } = await newPage();
+  await page.goto(`${BASE}/`);
+  check(await until(async () => (await page.locator('#feedList li[data-on="near"] .at a[href*="/txns/"]').count()) === 4), 'after one refusal, the NEAR events come back with their transaction hashes');
+  check(near.txApiFailures === 0 && (await text(page, '#feedNote')) === '', 'and no note about NEAR');
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }

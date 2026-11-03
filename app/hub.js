@@ -228,6 +228,15 @@ async function rhActivity() {
   return { items: out };
 }
 const TXAPI = 'https://tx.main.fastnear.com';
+/** One read of FastNear's transactions API, asked once more after a moment if it refuses (it is a busy public API). */
+async function txApi(pathName, body) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, 1200));
+    const r = await fetch(`${TXAPI}${pathName}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null);
+    if (r?.ok) { const j = await r.json().catch(() => null); if (j) return j; }
+  }
+  return null;
+}
 const NEAR_EVENTS = { bounty_created: 'opened', funded: 'funded', claimed: 'released', refunded: 'refunded' };
 async function nearActivity() {
   const dec = NEAR.token.decimals;
@@ -243,16 +252,14 @@ async function nearActivity() {
   };
   let hashes;
   try {
-    const r = await fetch(`${TXAPI}/v0/account`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ account_id: NEAR.escrow }) });
-    if (!r.ok) throw new Error(String(r.status));
-    const j = await r.json();
+    const j = await txApi('/v0/account', { account_id: NEAR.escrow });
+    if (!j) throw new Error('not read');
     hashes = (Array.isArray(j?.account_txs) ? j.account_txs : []).filter((t) => TX_NEAR.test(String(t?.transaction_hash)) && t.is_success !== false).slice(0, 80);
   } catch { return fromState('NEAR transaction hashes could not be read just now: NEAR bounties show when they opened, from the escrow’s own state, each linked to the escrow on nearblocks.'); }
   const at = new Map(hashes.map((t) => [t.transaction_hash, Number(BigInt(String(t.tx_block_timestamp ?? '0')) / 1_000_000_000n) || null]));
   const out = [];
   for (let i = 0; i < hashes.length; i += 20) {
-    const r = await fetch(`${TXAPI}/v0/transactions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tx_hashes: hashes.slice(i, i + 20).map((t) => t.transaction_hash) }) }).catch(() => null);
-    const j = r?.ok ? await r.json().catch(() => null) : null;
+    const j = await txApi('/v0/transactions', { tx_hashes: hashes.slice(i, i + 20).map((t) => t.transaction_hash) });
     if (!j) return fromState('NEAR transactions could not be read just now: NEAR bounties show when they opened, from the escrow’s own state.');
     for (const t of Array.isArray(j.transactions) ? j.transactions : []) {
       const hash = t?.transaction?.hash;
