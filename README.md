@@ -28,6 +28,21 @@ The same page also runs **Proof of Ship on NEAR**: USDC bounties in the escrow
 ([source](https://github.com/hey-research-lab/proof-of-ship-near)), released on the same signed count. See
 [On NEAR](#on-near-usdc).
 
+**One page, both chains.** HEY signs one count per claim; each escrow checks it under its own EIP-712 domain
+(Robinhood Chain: chain id 4663 with ShipEscrow as `verifyingContract`; NEAR: chain id 397 with
+`salt = keccak256("escrow.heyresearch.near")`), so one attestation is paid by one escrow only. The page shows:
+
+| Part | What it reads |
+| :-- | :-- |
+| The diagram | the attester each escrow names (`attester()`, `get_config`) and the domain separator each one computes, beside the one the page computes from the domain |
+| The figures | bounties, open now, locked now, paid to builders, builders paid and burned, per chain and for both, from the two contracts. WIF and USDC stay in their own units, side by side, never added up |
+| Bounties | one list of both chains' funded bounties, a chain badge, a countdown and the counted ships with their sources on every card; filter All, Robinhood Chain or NEAR; ordered by date only (newest, or ending soonest), never by amount |
+| Activity | opened, funded, released and refunded on both chains, newest first, each linked to its transaction: ShipEscrow's events over public RPC (`eth_getLogs` from its deploy block), the NEAR escrow's NEP-297 events from FastNear's public transactions API (`tx.main.fastnear.com`). When that API cannot be read, NEAR bounties show when they opened, from the escrow's own state, linked to the escrow on nearblocks: no hash is made up |
+| `?project=<slug>` | every bounty for one project on both chains, HEY's counted ships for it over the last 30 days, **Back this builder** (the chosen chain's form, prefilled), a link to copy and a badge snippet (`<a>` and an image, no frame, no script) |
+| Verify a receipt | paste HEY's attestation JSON: the page rebuilds the EIP-712 digest and recovers the signer with viem in your browser, says whether it is HEY's attester (`0x2b30…5760`) and which escrow and chain the domain binds to, and asks the escrow itself (ShipEscrow's `digest()`, the NEAR escrow's `recover_signer`). **Try an example** fetches a live attestation, no wallet needed |
+
+Light and dark follow the system, or the reader's choice from the header (remembered in this browser).
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/stats-dark.svg">
   <img alt="Proof of Ship, live from Robinhood Chain: $WIF locked now, paid to builders, burned, bounties opened and paid out" src="docs/stats-light.svg" width="100%">
@@ -78,7 +93,7 @@ Robinhood Chain stays the default and works exactly as before.
 | After the deadline plus 3 days, unclaimed, with the wallet you funded from | **Take back** with exactly what you locked: `refund(id)`. |
 | `curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"escrow.heyresearch.near","method_name":"get_config","args_base64":"e30="}}'` | The escrow's fixed config as bytes of JSON: attester `0x2b30…5760`, USDC, chain id 397, guardian `heyresearch.near`, intents `intents.near`. |
 | Look at any NEAR bounty | Time left to ship (then to claim), updated each minute; Ship by, Claim until (deadline plus 3 days) and Refunds from; the ships HEY has counted so far in the bounty's window, each linked to its evidence; **Post on X** with a ready post under 280 characters, and **Copy link**. |
-| `cd test/page && npm ci && npx playwright-core install chromium && node run.mjs` | 124 checks pass against mocked chains, a mocked HEY and test wallets: the Robinhood Chain flow up to its first wallet prompt, and the whole NEAR flow (not signing, then the target hint, the confirmation and the exact deadline it sends, open, fund, claim and refund, the countdown, the timeline and the X post), plus screenshots at 1280 and 400 px, light and dark, in `test/page/shots/`. |
+| `cd test/page && npm ci && npx playwright-core install chromium && node run.mjs` | 222 checks pass against mocked chains, a mocked HEY, a mocked FastNear and test wallets, with every other host refused: the Robinhood Chain flow up to its first wallet prompt; the whole NEAR flow (not signing, then the target hint, the confirmation and the exact deadline it sends, open, fund, claim and refund, the countdown, the timeline and the X post); the figures of both chains, the one list with its filter and date order, the diagram, the activity feed (and its fallback), the project view, verify-a-receipt (HEY's signature, a wrong signer, a signature moved to the other domain, a NEAR one cross-checked with `recover_signer`), the theme toggle, 4.5:1 text contrast in both themes and the HEY mark; plus screenshots at 1280 and 400 px, light and dark, in `test/page/shots/`. |
 
 **Where the money goes.** HEY's signature names the builder by an EVM address. The builder is paid at the NEAR
 eth-implicit account of that address, `0x` and its 40 hex characters in lower case, which the same Ethereum wallet
@@ -185,7 +200,8 @@ nothing in an escrow.
 <summary><b>The HEY endpoints the app uses</b></summary>
 
 All public, no key. The page reads them from your browser; it loads no third-party script (viem, WalletConnect and the
-NEAR Wallet Selector are bundled into `app/vendor/` and the page sets `script-src 'self'`).
+NEAR Wallet Selector are bundled into `app/vendor/` and the page sets `script-src 'self'`). Besides HEY it reads
+Robinhood Chain's and NEAR's public RPC, and FastNear's public transactions API for the NEAR activity feed.
 
 | Endpoint | For |
 | :-- | :-- |
@@ -195,6 +211,7 @@ NEAR Wallet Selector are bundled into `app/vendor/` and the page sets `script-sr
 | `GET /api/projects/<slug>` | the project card on a bounty, and its official X for a post that tells the builder |
 | `GET /api/projects/<slug>/timeline` | the ships HEY counted, up to five on each card, with the day HEY first recorded each |
 | `GET /api/search/suggest?q=` | the project field, which writes the project's exact slug when you pick one |
+| `GET /api/v1/proof-of-ship/ships?slug=&since=&until=` (30 days) | the project view's counted ships |
 
 </details>
 
@@ -240,6 +257,7 @@ FORK_RPC=https://rpc.mainnet.chain.robinhood.com forge test --mc Fork   # the fu
 python3 -m http.server -d app                                           # the app: static, no build step
 (cd test/page && npm ci && npx playwright-core install chromium && node run.mjs)  # page checks, both chains, mocked
 sh vendor-build/build.sh                                                # rebuild app/vendor and check SHA256SUMS
+(cd test/page && node og.mjs)                                           # redraw app/og.png, the social image
 node --no-warnings scripts/stats.mjs                                    # redraw this README's pictures and table
 ```
 

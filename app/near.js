@@ -1,5 +1,6 @@
-import { formatUnits, parseUnits, getAddress, isAddress, keccak256, recoverTypedDataAddress, stringToBytes } from './vendor/viem.js?v=7';
+import { formatUnits, parseUnits, getAddress, isAddress, keccak256, recoverTypedDataAddress, stringToBytes } from './vendor/viem.js?v=8';
 import { NEAR } from './near-config.js?v=1';
+import { badge, chainReady, emitStats, placeCard, removeCards } from './lib.js?v=1';
 
 /*
  * Proof of Ship on NEAR: the chain switch, and the whole NEAR flow (open, fund, list, claim, refund) against
@@ -115,7 +116,8 @@ function setChain(chain, write = true) {
     if (chain !== 'near' && /^#near-/.test(u.hash)) u.hash = '';
     history.replaceState(null, '', u);
   }
-  if (chain === 'near' && !started) { started = true; start().catch(fail); }
+  // The NEAR escrow is read on every visit: its bounties sit in the one list and its figures beside Robinhood Chain's.
+  if (!started) { started = true; start().catch(fail); }
 }
 document.querySelectorAll('#chainSwitch [data-pick]').forEach((b) => b.addEventListener('click', () => setChain(b.dataset.pick)));
 
@@ -406,7 +408,7 @@ function renderAccount() {
   $('#nAccount').innerHTML = `<span class="dot"></span><span>${esc(short(account))}</span>${heldUsdc !== null ? `<span class="muted">${compact(heldUsdc)} ${T.symbol}</span>` : ''}`;
   $('#nAcctWallet').textContent = walletName ?? 'NEAR wallet';
   $('#nAcctAddr').textContent = account;
-  $('#nAcctUsdc').textContent = heldUsdc !== null ? `${fmt(heldUsdc)} ${T.symbol}` : '—';
+  $('#nAcctUsdc').textContent = heldUsdc !== null ? `${fmt(heldUsdc)} ${T.symbol}` : '…';
   $('#nAcctExplorer').href = accountUrl(account);
 }
 async function needWallet() {
@@ -468,7 +470,7 @@ let busy = false;
 function setBusy(on) {
   busy = on;
   $('#nCreate').inert = on || retired === true;
-  document.querySelectorAll('#nearView [data-nact], #nearView .fund-box input, #nFundBtn').forEach((el) => { el.disabled = on; });
+  document.querySelectorAll('[data-nact], [data-nfund-box] input, #nFundBtn').forEach((el) => { el.disabled = on; });
   renderPreview();
 }
 async function runExclusive(fn) {
@@ -540,14 +542,14 @@ function renderPreview() {
   renderPace();
   $('#nAmt').innerHTML = `${fmt(v.amount)}<small>${T.symbol}</small>`;
   $('#nPay').textContent = `${fmt(v.amount)} ${T.symbol}`;
-  $('#nShips').textContent = `${v.minShips || '—'} ship${v.minShips === 1 ? '' : 's'}`;
+  $('#nShips').textContent = `${v.minShips || '…'} ship${v.minShips === 1 ? '' : 's'}`;
   const by = now() + v.days * 86400;
-  $('#nBy').textContent = v.days ? `${day(by)} · ${v.days} day${v.days === 1 ? '' : 's'}` : '—';
-  $('#nRefund').textContent = v.days ? day(by + GRACE) : '—';
+  $('#nBy').textContent = v.days ? `${day(by)} · ${v.days} day${v.days === 1 ? '' : 's'}` : '…';
+  $('#nRefund').textContent = v.days ? day(by + GRACE) : '…';
   $('#nDaysHint').textContent = v.days ? `Ships counted until ${day(by)}.` : '';
   $('#nPayoutHint').textContent = PAYOUT_HINT[v.payout];
   const acct = isAddress(v.builder) ? ethImplicit(v.builder) : null;
-  $('#nAccountOut').innerHTML = acct ? `<a class="mono" href="${esc(accountUrl(acct))}" target="_blank" rel="noopener">${esc(short(acct))}</a>` : '—';
+  $('#nAccountOut').innerHTML = acct ? `<a class="mono" href="${esc(accountUrl(acct))}" target="_blank" rel="noopener">${esc(short(acct))}</a>` : '…';
   $('#nRoute').textContent = v.payout === 'intents' ? 'NEAR Intents' : 'NEAR account';
   const bh = $('#nBalHint'), btn = $('#nOpenBtn');
   let over = false;
@@ -907,9 +909,12 @@ $('#nFundBtn').addEventListener('click', () => { const p = pendingFund; if (p) r
 const MAX_READ = 200;
 let rows = [], escrowLocked = null, totalCount = 0, loadSeq = 0;
 const claimReady = new Map(); // id -> the verified claim HEY signed, shown before the reader submits it
+/** The list from the chain; a read that fails says so in the list instead of leaving it waiting. */
 async function load() {
+  try { await readList(); } catch (err) { emitStats('near', { failed: true }); chainReady('near', 'The NEAR escrow could not be read just now.'); throw err; }
+}
+async function readList() {
   const seq = ++loadSeq;
-  const box = $('#nBounties');
   const [, count, locked] = await Promise.all([readConfig(), view(NEAR.escrow, 'bounty_count'), usdcBalance(NEAR.escrow).catch(() => null)]);
   if (seq !== loadSeq) return;
   totalCount = Number(count);
@@ -926,23 +931,35 @@ async function load() {
   // Funded or settled bounties, and the reader's own empty ones while they can still be funded (step 2).
   const shown = rows.filter((b) => b.total > 0n || b.status !== 'open' || (account && b.creator === account && !retired && now() < b.deadline));
   const hiddenEmpty = rows.length - shown.length;
-  $('#nCount').textContent = `${totalCount} bount${totalCount === 1 ? 'y' : 'ies'} on NEAR${hiddenEmpty ? ` · ${hiddenEmpty} with nothing locked not shown` : ''}${totalCount > rows.length ? ` · newest ${rows.length} read` : ''}`;
-  if (!shown.length) { box.innerHTML = `<div class="empty">${totalCount ? 'No funded NEAR bounties yet.' : 'No bounties on NEAR yet.'} Open the first one above.</div>`; return; }
-  box.innerHTML = shown.map((b) => renderBounty(b, { pending: true })).join('');
+  $('#nCount').textContent = `${totalCount} on NEAR${hiddenEmpty ? ` (${hiddenEmpty} with nothing locked not shown)` : ''}${totalCount > rows.length ? ` · newest ${rows.length} read` : ''}`;
+  removeCards('near');
+  for (const b of shown) {
+    const holder = document.createElement('div');
+    holder.innerHTML = renderBounty(b, { pending: true });
+    const card = holder.firstElementChild;
+    placeCard(card);
+    wireCards(card, card);
+  }
+  chainReady('near');
   shown.forEach((b) => hydrate(b).catch(() => undefined));
-  wireCards(box);
   goToHash();
 }
 function renderStats() {
   let paid = 0n, open = 0;
+  const builders = new Set();
   for (const b of rows) {
     paid += b.paid_out;
+    if (b.status === 'paid') builders.add(String(b.builder_account).toLowerCase());
     if (b.status === 'open' && b.total > 0n && !retired && now() <= b.deadline + GRACE) open++;
   }
-  $('#nsLocked').innerHTML = escrowLocked === null ? '—' : `${compact(escrowLocked)}<small>${T.symbol}</small>`;
+  $('#nsLocked').innerHTML = escrowLocked === null ? 'not read' : `${compact(escrowLocked)}<small>${T.symbol}</small>`;
   $('#nsOpen').textContent = String(open);
   $('#nsPaid').innerHTML = `${compact(paid)}<small>${T.symbol}</small>`;
   $('#nsCount').textContent = String(totalCount);
+  // Every bounty's figures, only when every bounty was read (MAX_READ caps the read; then the totals are not claimed).
+  emitStats('near', totalCount <= rows.length
+    ? { count: totalCount, open, locked: escrowLocked, paid, burned: null, builders: [...builders], decimals: T.decimals }
+    : { count: totalCount, open: null, locked: escrowLocked, paid: null, burned: null, builders: null, decimals: T.decimals });
 }
 const cardState = new Map(); // id -> { project, mine, att, ships }
 async function hydrate(b) {
@@ -1019,7 +1036,7 @@ function countdownParts(deadline, status) {
   return ['Time left', 'Closed'];
 }
 function tickCountdowns() {
-  document.querySelectorAll('#nearView [data-ncount]').forEach((el) => {
+  document.querySelectorAll('[data-ncount]').forEach((el) => {
     const [k, v] = countdownParts(Number(el.dataset.deadline), el.dataset.status);
     const kEl = el.querySelector('.k'), vEl = el.querySelector('.v');
     if (kEl.textContent !== k) kEl.textContent = k;
@@ -1094,6 +1111,7 @@ function renderBounty(b, hey) {
   const postable = b.status === 'paid' || (open && funded && !isRetired && now() < b.deadline);
   if (postable) actions.push(`<a class="link-btn" data-nx="${b.id}" href="${esc(xIntent(xText(b, name)))}" target="_blank" rel="noopener">Post on X</a>`);
   actions.push(`<button class="link-btn" type="button" data-ncopy="${b.id}">Copy link</button>`);
+  if (isHeySlug(b.slug)) actions.push(`<a class="link-btn" href="./?project=${encodeURIComponent(b.slug)}">Project view</a>`);
   const progressLabel = b.status === 'paid' ? `Paid ${fmt(b.paid_out)} ${T.symbol} on ${b.ships} ships HEY counted` : have === null ? 'Ships HEY counted' : `HEY counts ${have} of ${need} ships`;
   const claimBox = ready ? `<div class="claimbox" role="region" aria-label="Claim for bounty #${b.id}">
       <p class="ok"><b>HEY counts ${ready.ships} ship${ready.ships === 1 ? '' : 's'}</b> for ${esc(name)} from ${esc(day(ready.since))} to ${esc(day(ready.until))}. The bounty needs ${need}.</p>
@@ -1104,10 +1122,10 @@ function renderBounty(b, hey) {
   const counted = signed && !ready ? evidenceList(att.body, ships, 10, true) : '';
   const list = counted ? `<div class="counted"><div class="k">Ships HEY has counted so far, ${have} since ${esc(day(b.start))}</div>${counted}</div>` : '';
   const [leftK, leftV] = countdownParts(b.deadline, b.status);
-  return `<article class="card bounty" id="near-bounty-${b.id}"${pending ? ' data-pending="1"' : ''}>
+  return `<article class="card bounty" id="near-bounty-${b.id}" data-on="near" data-slug="${isHeySlug(b.slug) ? esc(b.slug) : ''}" data-start="${Number(b.start)}" data-deadline="${Number(b.deadline)}"${pending ? ' data-pending="1"' : ''}>
     <div class="top">
       <div class="id">${logo(project?.logoUrl, name)}<div><span class="name">${esc(name)}</span><a class="slug" href="${NEAR.hey}/project/${encodeURIComponent(b.slug)}" target="_blank" rel="noopener">heyresearch.xyz/project/${esc(b.slug)}</a></div></div>
-      <span class="chip ${state[0]}">${esc(state[1])}</span>
+      <div class="tags">${badge('near')}<span class="chip ${state[0]}">${esc(state[1])}</span></div>
     </div>
     <div class="facts">
       <div class="fact"><div class="k">Locked</div><div class="v">${fmt(b.total)} ${T.symbol}</div></div>

@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
-import { decodeFunctionData, encodeFunctionResult, getAddress, keccak256, parseAbi, recoverTypedDataAddress, stringToBytes } from 'viem';
+import { decodeFunctionData, domainSeparator, encodeAbiParameters, encodeEventTopics, encodeFunctionResult, getAddress, hashTypedData, keccak256, parseAbi, recoverTypedDataAddress, stringToBytes } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -50,11 +50,12 @@ const PROJECTS = {
   'fly-ai': { slug: 'fly-ai', name: 'fly.ai', activityStatus: 'SHIPPING', lastShippedAt: new Date(Date.now() - 2 * DAY * 1000).toISOString(), logoUrl: null },
   'quiet-labs': { slug: 'quiet-labs', name: 'Quiet Labs', activityStatus: 'UNKNOWN', lastShippedAt: null, logoUrl: null },
   'long-name': { slug: 'long-name', name: `The ${'Extraordinarily Long Named '.repeat(5)}Protocol`, activityStatus: 'SHIPPING', lastShippedAt: null, logoUrl: null },
+  loom: { slug: 'loom', name: 'Loom', activityStatus: 'SHIPPING', lastShippedAt: new Date(Date.now() - DAY * 1000).toISOString(), logoUrl: null },
 };
-const TIES = { 'predict-fwa': '0x420944b441715E34Dd672AE0Eb4526A7AD7d1EEF', 'fly-ai': '0x625862521777E19Ad54Ce6C7ABeD9Ca54D6589ea', 'quiet-labs': '0x1234567890123456789012345678901234567890', 'long-name': '0x2222222222222222222222222222222222222222' };
-const SHIPS = { 'predict-fwa': 3, 'fly-ai': 1, 'quiet-labs': 0, 'long-name': 0 };
+const TIES = { 'predict-fwa': '0x420944b441715E34Dd672AE0Eb4526A7AD7d1EEF', 'fly-ai': '0x625862521777E19Ad54Ce6C7ABeD9Ca54D6589ea', 'quiet-labs': '0x1234567890123456789012345678901234567890', 'long-name': '0x2222222222222222222222222222222222222222', loom: '0x2f7CE7eeF4b091E0827dA1E8C2E10D061d95d180' };
+const SHIPS = { 'predict-fwa': 3, 'fly-ai': 1, 'quiet-labs': 0, 'long-name': 0, loom: 2 };
 // HEY's unsigned count of the last 14 days (the pace hint): null is "HEY can't measure it", never 0.
-const SHIPS_14D = { 'predict-fwa': 10, 'fly-ai': 1, 'quiet-labs': null, 'long-name': 2 };
+const SHIPS_14D = { 'predict-fwa': 10, 'fly-ai': 1, 'quiet-labs': null, 'long-name': 2, loom: 7 };
 const NEAR_ESCROW = 'escrow.heyresearch.near';
 const RH_ESCROW = '0x3Da17a89F1d29aB96419269514C798a8dd6125f2';
 const hey = { nearLive: false, attestations: [], shipsCalls: [] };
@@ -102,7 +103,9 @@ async function heyRoute(route) {
     const domain = isNear ? nearDomain : rhDomain;
     const message = { ...attestation, since: BigInt(attestation.since), until: BigInt(attestation.until), issuedAt: BigInt(issuedAt) };
     const signature = await attester.signTypedData({ domain, types: SHIPS_TYPES, primaryType: 'Ships', message });
-    return json(200, { attestation, signature, domain, escrow: p.escrow, escrowKind: isNear ? 'near' : 'evm', builderTie: 'wallet_claim', evidenceIds: ids, evidenceUrls: ids.map((id) => `https://heyresearch.xyz/e/${id}`), signer: attester.address });
+    const digest = hashTypedData({ domain, types: SHIPS_TYPES, primaryType: 'Ships', message });
+    const typedData = { types: { EIP712Domain: Object.keys(domain).map((k) => ({ name: k, type: { name: 'string', version: 'string', chainId: 'uint256', verifyingContract: 'address', salt: 'bytes32' }[k] })), ...SHIPS_TYPES }, primaryType: 'Ships', domain, message: attestation };
+    return json(200, { attestation, signature, signer: attester.address, domain, escrow: p.escrow, escrowKind: isNear ? 'near' : 'evm', digest, typedData, slug: p.slug, currentSlug: p.slug, builderTie: 'wallet_claim', evidenceIds: ids, evidenceUrls: ids.map((id) => `https://heyresearch.xyz/e/${id}`) });
   }
   return json(404, { error: 'not_found' });
 }
@@ -110,17 +113,24 @@ async function heyRoute(route) {
 // ------------------------------------------------------------------ mocked NEAR: the escrow's rules, the token, the RPC
 const ME = 'funder.near', ALICE = 'alice.near';
 const USDC = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
-const near = { bounties: [], contrib: new Map(), usdc: new Map(), txs: [], views: [] };
+const near = { bounties: [], contrib: new Map(), usdc: new Map(), txs: [], views: [], events: [], pending: [], txApi: true };
+const nearEvent = (event, data) => near.pending.push(`EVENT_JSON:${JSON.stringify({ standard: 'hey-proof-of-ship', version: '1.0.0', event, data: [data] })}`);
+/** One NEAR transaction as FastNear's transactions API keeps it: its hash, its time and the escrow's event logs. */
+const nearTx = (hash, at, receiver) => { near.events.push({ hash, at, receiver, logs: near.pending.splice(0) }); };
 const bal = (a) => near.usdc.get(a) ?? 0n;
 const addBal = (a, v) => near.usdc.set(a, bal(a) + v);
 function seedNear() {
-  near.bounties = []; near.contrib = new Map(); near.usdc = new Map([[ME, 500_000_000n]]); near.txs = []; near.views = [];
+  near.bounties = []; near.contrib = new Map(); near.usdc = new Map([[ME, 500_000_000n]]); near.txs = []; near.views = []; near.events = []; near.pending = []; near.txApi = true;
   const t = NOW();
   const mk = (slug, creator, start, deadline, minShips, funder, amount) => {
     const id = near.bounties.length;
     near.bounties.push({ id, slug, builder: TIES[slug].toLowerCase(), creator, start, deadline, min_ships: minShips, payout: 'near', status: 'open', total: amount, paid_out: 0n, funders: 1, ships: 0, evidence: null, failed_payouts: 0 });
     near.contrib.set(`${id}:${funder}`, amount);
     addBal(NEAR_ESCROW, amount);
+    nearEvent('bounty_created', { id, slug, builder: TIES[slug].toLowerCase(), creator, min_ships: minShips, start, deadline, payout: 'near' });
+    nearTx(`${'3'.repeat(40)}${String(id * 2 + 1).padStart(4, '4')}`, start, NEAR_ESCROW);
+    nearEvent('funded', { id, funder, amount: String(amount), total: String(amount) });
+    nearTx(`${'3'.repeat(40)}${String(id * 2 + 2).padStart(4, '4')}`, start + 60, USDC);
   };
   mk('fly-ai', ME, t - 30 * DAY, t - 10 * DAY, 3, ME, 50_000_000n); // past the deadline plus grace: refundable
   mk('predict-fwa', ALICE, t - 2 * DAY, t + 5 * DAY, 3, ALICE, 100_000_000n); // target met: claimable
@@ -132,7 +142,7 @@ async function nearView(account, method, args) {
   if (account === USDC && method === 'ft_balance_of') return String(bal(args.account_id));
   if (account !== NEAR_ESCROW) throw new Error(`no view ${account}.${method}`);
   switch (method) {
-    case 'get_config': return { attester: attester.address.toLowerCase(), token: USDC, chain_id: 397, salt: nearDomain.salt, domain_separator: '0x', guardian: 'heyresearch.near', intents: 'intents.near', token_storage_deposit: '1250000000000000000000', retired: false, max_attestation_age: 86400, claim_grace: GRACE, min_duration: DAY, max_duration: 365 * DAY };
+    case 'get_config': return { attester: attester.address.toLowerCase(), token: USDC, chain_id: 397, salt: nearDomain.salt, domain_separator: domainSeparator({ domain: nearDomain }), guardian: 'heyresearch.near', intents: 'intents.near', token_storage_deposit: '1250000000000000000000', retired: false, max_attestation_age: 86400, claim_grace: GRACE, min_duration: DAY, max_duration: 365 * DAY };
     case 'bounty_count': return near.bounties.length;
     case 'get_bounties': { const from = args.from_index ?? 0; return near.bounties.slice(from, from + Math.min(args.limit ?? 50, 50)).map(viewOf); }
     case 'get_bounty': return near.bounties[args.id] ? viewOf(near.bounties[args.id]) : null;
@@ -140,7 +150,7 @@ async function nearView(account, method, args) {
     case 'recover_signer': {
       const a = args.attestation;
       const signer = await recoverTypedDataAddress({ domain: nearDomain, types: SHIPS_TYPES, primaryType: 'Ships', message: { ...a, since: BigInt(a.since), until: BigInt(a.until), issuedAt: BigInt(a.issuedAt) }, signature: args.signature });
-      return { signer: signer.toLowerCase(), is_attester: signer === attester.address, error: null, digest: '0x' };
+      return { signer: signer.toLowerCase(), is_attester: signer === attester.address, error: null, digest: hashTypedData({ domain: nearDomain, types: SHIPS_TYPES, primaryType: 'Ships', message: { ...a, since: BigInt(a.since), until: BigInt(a.until), issuedAt: BigInt(a.issuedAt) } }) };
     }
     default: throw new Error(`no view ${method}`);
   }
@@ -156,6 +166,7 @@ async function nearExec(tx) {
     if (!/^[a-z0-9][a-z0-9-]{0,127}$/.test(args.slug)) panic('ERR_BAD_SLUG');
     const id = near.bounties.length;
     near.bounties.push({ id, slug: args.slug, builder: args.builder.toLowerCase(), creator: signer, start: t, deadline: args.deadline, min_ships: args.min_ships, payout: args.payout ?? 'near', status: 'open', total: 0n, paid_out: 0n, funders: 0, ships: 0, evidence: null, failed_payouts: 0 });
+    nearEvent('bounty_created', { id, slug: args.slug, builder: args.builder.toLowerCase(), creator: signer, min_ships: args.min_ships, start: t, deadline: args.deadline, payout: args.payout ?? 'near' });
     return id;
   }
   if (tx.receiverId === USDC && a.methodName === 'ft_transfer_call') {
@@ -170,6 +181,7 @@ async function nearExec(tx) {
     if (!near.contrib.has(key)) b.funders++;
     near.contrib.set(key, (near.contrib.get(key) ?? 0n) + amount);
     b.total += amount;
+    nearEvent('funded', { id: b.id, funder: signer, amount: String(amount), total: String(b.total) });
     return String(amount);
   }
   if (tx.receiverId === NEAR_ESCROW && a.methodName === 'claim') {
@@ -187,6 +199,7 @@ async function nearExec(tx) {
     const { is_attester } = await nearView(NEAR_ESCROW, 'recover_signer', { attestation: at, signature: args.signature });
     if (!is_attester) panic('ERR_WRONG_SIGNER');
     b.status = 'paid'; b.paid_out = b.total; b.ships = Number(at.ships); b.evidence = at.evidence;
+    nearEvent('claimed', { id: b.id, builder: b.builder, route: b.payout, paid: String(b.total), ships: Number(at.ships), evidence: at.evidence });
     addBal(NEAR_ESCROW, -b.total); addBal(b.builder, b.total);
     return true;
   }
@@ -197,6 +210,7 @@ async function nearExec(tx) {
     const key = `${b.id}:${signer}`, amount = near.contrib.get(key) ?? 0n;
     if (amount === 0n) panic('ERR_NOTHING_TO_REFUND');
     near.contrib.delete(key); b.total -= amount; b.funders--;
+    nearEvent('refunded', { id: b.id, funder: signer, amount: String(amount) });
     addBal(NEAR_ESCROW, -amount); addBal(signer, amount);
     return true;
   }
@@ -206,9 +220,13 @@ let txn = 0;
 const fakeHash = () => `${'1'.repeat(40)}${String(++txn).padStart(4, '2')}`.replace(/0/g, '2');
 async function nearSend(tx) {
   try {
+    near.pending = [];
     const value = await nearExec(tx);
-    return { status: { SuccessValue: Buffer.from(JSON.stringify(value)).toString('base64') }, transaction: { hash: fakeHash() } };
+    const hash = fakeHash();
+    nearTx(hash, NOW(), tx.receiverId);
+    return { status: { SuccessValue: Buffer.from(JSON.stringify(value)).toString('base64') }, transaction: { hash } };
   } catch (e) {
+    near.pending = [];
     if (!e.panic) throw e;
     return { status: { Failure: { ActionError: { index: 0, kind: { FunctionCallError: { ExecutionError: `Smart contract panicked: ${e.message}` } } } } }, transaction: { hash: fakeHash() } };
   }
@@ -225,12 +243,29 @@ async function nearRpc(route) {
   return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { message: 'not mocked' } }) });
 }
 
+/** FastNear's public transactions API: the escrow's transactions, newest first, and each one's receipts and logs. */
+async function nearTxApi(route) {
+  const u = new URL(route.request().url());
+  const body = JSON.parse(route.request().postData() ?? '{}');
+  const json = (status, b) => route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(b) });
+  if (!near.txApi) return json(503, { error: 'unavailable' });
+  if (u.pathname === '/v0/account' && body.account_id === NEAR_ESCROW) {
+    const txs = [...near.events].sort((a, b) => b.at - a.at).map((e, i) => ({ account_id: NEAR_ESCROW, transaction_hash: e.hash, tx_block_height: 1000 + i, tx_block_timestamp: String(BigInt(e.at) * 1_000_000_000n), is_success: true }));
+    return json(200, { account_txs: txs, txs_count: txs.length });
+  }
+  if (u.pathname === '/v0/transactions') {
+    const want = new Set(body.tx_hashes ?? []);
+    return json(200, { transactions: near.events.filter((e) => want.has(e.hash)).map((e) => ({ transaction: { hash: e.hash, signer_id: 'x.near', receiver_id: e.receiver }, receipts: [{ receipt: { receiver_id: NEAR_ESCROW }, execution_outcome: { outcome: { logs: e.logs } } }] })) });
+  }
+  return json(404, { error: 'not mocked' });
+}
+
 // ------------------------------------------------------------------ mocked Robinhood Chain
 const ABI = JSON.parse(fs.readFileSync(path.join(APP, 'ShipEscrow.abi.json'), 'utf8'));
 const ERC20 = parseAbi(['function balanceOf(address) view returns (uint256)', 'function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)']);
 const WIF = '0x5173b8eA6923c2d40267890D45C46a3480954773';
 const RH_ME = '0x1111111111111111111111111111111111111111';
-const rh = { sent: [] };
+const rh = { sent: [], logReads: [] };
 function rhBounties() {
   const t = NOW();
   return [
@@ -246,19 +281,51 @@ function rhCall(to, data) {
     return encodeFunctionResult({ abi: ERC20, functionName, result: v });
   }
   const { functionName, args } = decodeFunctionData({ abi: ABI, data });
-  const r = { bountyCount: 2n, retired: false, contributed: 0n }[functionName];
+  const r = { bountyCount: 2n, retired: false, contributed: 0n, attester: attester.address, domainSeparator: domainSeparator({ domain: rhDomain }) }[functionName];
+  if (functionName === 'digest') { const a = args[0]; return encodeFunctionResult({ abi: ABI, functionName, result: hashTypedData({ domain: rhDomain, types: SHIPS_TYPES, primaryType: 'Ships', message: a }) }); }
   if (r !== undefined) return encodeFunctionResult({ abi: ABI, functionName, result: r });
   if (functionName === 'bounty') { const { slug, ...b } = bs[Number(args[0])]; return encodeFunctionResult({ abi: ABI, functionName, result: b }); }
   if (functionName === 'slugOf') return encodeFunctionResult({ abi: ABI, functionName, result: bs[Number(args[0])].slug });
   throw new Error(`rh call ${functionName}`);
 }
+/** ShipEscrow's events for the two bounties, as eth_getLogs answers them: #0 opened, funded, released; #1 opened, funded. */
+const RH_FROM = 96136035;
+function rhLogs() {
+  const t = NOW();
+  const bs = rhBounties();
+  const ev = [];
+  const log = (block, at, eventName, args, i) => {
+    const item = ABI.find((x) => x.type === 'event' && x.name === eventName);
+    // Each indexed argument as its own topic (encodeEventTopics drops an id of 0n as if it were missing).
+    const topics = [encodeEventTopics({ abi: ABI, eventName })[0], ...item.inputs.filter((x) => x.indexed).map((x) => encodeAbiParameters([x], [args[x.name]]))];
+    const data = encodeAbiParameters(item.inputs.filter((x) => !x.indexed), item.inputs.filter((x) => !x.indexed).map((x) => args[x.name]));
+    ev.push({ address: RH_ESCROW.toLowerCase(), topics, data, blockNumber: `0x${block.toString(16)}`, transactionHash: `0x${String(block).padStart(8, '0')}${'cd'.repeat(28)}`, transactionIndex: '0x0', blockHash: `0x${'ef'.repeat(32)}`, logIndex: `0x${i.toString(16)}`, removed: false, at });
+  };
+  bs.forEach((b, id) => {
+    const blk = RH_FROM + 1000 + id * 1000;
+    const start = Number(b.start);
+    log(blk, start, 'BountyCreated', { id: BigInt(id), token: WIF, builder: b.builder, project: b.project, slug: b.slug, minShips: b.minShips, start: b.start, deadline: b.deadline, burnBps: b.burnBps }, 0);
+    log(blk, start, 'Funded', { id: BigInt(id), funder: RH_ME, amount: b.total, total: b.total }, 1);
+    if (b.paid) log(blk + 500, Number(b.deadline) - 3600, 'Claimed', { id: BigInt(id), builder: b.builder, paid: b.total - b.total / 50n, burned: b.total / 50n, ships: 3, evidence: `0x${'11'.repeat(32)}` }, 0);
+  });
+  return ev;
+}
+const rhBlockTime = (n) => rhLogs().find((l) => Number(l.blockNumber) === n)?.at ?? NOW();
 async function rhRpc(route) {
   const body = JSON.parse(route.request().postData() ?? '{}');
   const one = (q) => {
     const ok = (result) => ({ jsonrpc: '2.0', id: q.id, result });
     if (q.method === 'eth_chainId') return ok('0x1237');
-    if (q.method === 'eth_blockNumber') return ok('0x100');
-    if (q.method === 'eth_getBlockByNumber') return ok({ number: '0x100', timestamp: `0x${NOW().toString(16)}`, hash: `0x${'ab'.repeat(32)}`, transactions: [] });
+    if (q.method === 'eth_blockNumber') return ok(`0x${(RH_FROM + 3_000_000).toString(16)}`);
+    if (q.method === 'eth_getBlockByNumber') {
+      const n = /^0x/.test(String(q.params[0])) ? Number(q.params[0]) : null;
+      return ok({ number: q.params[0] === 'latest' ? `0x${(RH_FROM + 3_000_000).toString(16)}` : q.params[0], timestamp: `0x${(n === null ? NOW() : rhBlockTime(n)).toString(16)}`, hash: `0x${'ab'.repeat(32)}`, transactions: [] });
+    }
+    if (q.method === 'eth_getLogs') {
+      const f = q.params[0];
+      rh.logReads.push(f);
+      return ok(rhLogs().filter((l) => Number(l.blockNumber) >= Number(f.fromBlock) && Number(l.blockNumber) <= Number(f.toBlock)).map(({ at, ...l }) => l));
+    }
     if (q.method === 'eth_call') { try { return ok(rhCall(q.params[0].to, q.params[0].data)); } catch (e) { return { jsonrpc: '2.0', id: q.id, error: { code: -32000, message: e.message } }; } }
     return { jsonrpc: '2.0', id: q.id, error: { code: -32601, message: `not mocked ${q.method}` } };
   };
@@ -267,6 +334,7 @@ async function rhRpc(route) {
 
 // ------------------------------------------------------------------ the browser
 const browser = await chromium.launch();
+const live = [];
 async function newPage({ width = 1280, height = 900, scheme = 'light', timezoneId = 'UTC' } = {}) {
   const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: scheme, timezoneId });
   const page = await ctx.newPage();
@@ -279,7 +347,10 @@ async function newPage({ width = 1280, height = 900, scheme = 'light', timezoneI
     const text = (await res.text()).replace(/attester: '0x[0-9a-fA-F]{40}'/, `attester: '${attester.address}'`);
     await route.fulfill({ response: res, body: text, headers: { ...res.headers(), 'content-type': 'text/javascript' } });
   });
+  // Anything not mocked below is refused: the checks never reach a live host.
+  await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, (r) => { live.push(r.request().url()); return r.abort(); });
   await page.route('https://heyresearch.xyz/**', heyRoute);
+  await page.route('https://tx.main.fastnear.com/**', nearTxApi);
   await page.route(/https:\/\/(free\.rpc\.fastnear\.com|rpc\.mainnet\.near\.org)\/?.*/, nearRpc);
   await page.route('https://rpc.mainnet.chain.robinhood.com/**', rhRpc);
   await page.route(/https:\/\/(wallet\.meteorwallet\.app|app\.mynearwallet\.com)\/.*/, (r) => r.abort());
@@ -320,6 +391,8 @@ const utcShort = (s) => { const d = new Date(s * 1000); return `${d.toLocaleDate
 const dayMonth = (s) => new Date(s * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 const xPost = async (page, sel) => { const href = await page.getAttribute(sel, 'href'); return href ? new URL(href).searchParams.get('text') : null; };
 const minutesOf = (t) => { const m = /^(?:(\d+)d )?(?:(\d+)h )?(\d+)m$/.exec(t); return m ? Number(m[1] ?? 0) * 1440 + Number(m[2] ?? 0) * 60 + Number(m[3]) : NaN; };
+/** Scroll a card into view by its id: a card is redrawn when HEY answers, so a held locator can go stale. */
+const reveal = (page, sel) => page.evaluate((q) => document.querySelector(q)?.scrollIntoView({ block: 'center' }), sel);
 const noSideScroll = (page) => page.evaluate(() => document.scrollingElement.scrollWidth <= window.innerWidth);
 async function pick(page, input, q) {
   await page.fill(input, '');
@@ -545,7 +618,7 @@ seedNear();
   await page.clock.install();
   await page.goto(`${BASE}/?chain=near#near-bounty-${id}`);
   const sel = `#near-bounty-${id}`;
-  check(await until(async () => (await page.locator(`${sel} [data-nx]`).count()) === 1), 'the long-named bounty offers Post on X');
+  check(await until(async () => (await page.locator(`${sel} [data-nx]`).count()) === 1 && !(await page.getAttribute(sel, 'data-pending'))), 'the long-named bounty offers Post on X');
   const post = await xPost(page, `${sel} [data-nx]`);
   check(post.length <= 280 && post.endsWith(`#NEARHackathon https://hey-research-lab.github.io/proof-of-ship/?chain=near#near-bounty-${id}`) && /I'm backing The Extraordinarily .*… on NEAR: 1,234,567\.89 USDC if they ship 12 times by /.test(post), `a long name is cut so the post stays at ${post.length} characters, link kept`);
   const before = await text(page, `${sel} [data-ncount] .v`);
@@ -581,12 +654,268 @@ for (const scheme of ['light', 'dark']) {
   await ctx.close();
 }
 
+
+// ================================================================== one page, both chains
+const contrastOf = (page, sels) => page.evaluate((list) => {
+  const rgba = (c) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; };
+  const over = (top, under) => { const a = top[3]; return [0, 1, 2].map((i) => top[i] * a + under[i] * (1 - a)).concat(1); };
+  const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+  const ground = (el) => {
+    const stack = [];
+    for (let e = el; e; e = e.parentElement) { const c = rgba(getComputedStyle(e).backgroundColor); if (c && c[3] > 0) { stack.push(c); if (c[3] >= 1) break; } }
+    let bg = [255, 255, 255, 1];
+    if (!stack.length || stack[stack.length - 1][3] < 1) bg = rgba(getComputedStyle(document.body).backgroundColor) ?? bg;
+    for (const c of stack.reverse()) bg = over(c, bg);
+    return bg;
+  };
+  return list.map((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return { sel, ratio: null };
+    const bg = ground(el);
+    const fg = over(rgba(getComputedStyle(el).color), bg);
+    const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+    return { sel, ratio: Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100 };
+  });
+}, sels);
+const TEXT_SELECTORS = ['h1', '.lede', '.eyebrow', '.sh p', '.figs tbody th', '.figs td small', '.figs thead th', '#figures .cb-robinhood', '#figures .cb-near', '.flow .live', '.flow .nk', '.escrows dt', '#allBounties .chip', '#allBounties .slug', '#allBounties .fact .k', '.feed .at', '.feed .what', '#filter button[aria-pressed="false"]', 'footer', '.hint'];
+seedNear();
+{
+  console.log('\n# Both chains: figures, the one list, the diagram, the feed');
+  hey.nearLive = true;
+  const { page, ctx, errors } = await newPage();
+  await page.goto(`${BASE}/`);
+  check(await until(async () => (await text(page, '#tCount')) === '4'), 'Both chains: 4 bounties (2 on Robinhood Chain, 2 on NEAR), read from the two contracts');
+  check((await text(page, '#sCount')) === '2' && (await text(page, '#nsCount')) === '2', 'each chain’s own count: 2 and 2');
+  check(await until(async () => (await text(page, '#tOpen')) === '2'), 'open now: 1 + 1 = 2');
+  const locked = await text(page, '#tLocked');
+  check(/5,000\s*WIF/.test(locked) && /150\s*USDC/.test(locked) && !/5,150|\$/.test(locked), `locked now, side by side and never added: “${locked.replace(/\s+/g, ' ')}”`);
+  const paid = await text(page, '#tPaid');
+  check(/4,900\s*WIF/.test(paid) && /0\s*USDC/.test(paid), `paid to builders, in each token: “${paid.replace(/\s+/g, ' ')}”`);
+  check((await text(page, '#sBuilders')) === '1' && (await text(page, '#nsBuilders')) === '0' && (await text(page, '#tBuilders')) === '1', 'builders paid: 1 on Robinhood Chain, 0 on NEAR, 1 in all');
+  check(/100\s*WIF/.test(await text(page, '#tBurned')), 'burned on payout: 100 WIF, Robinhood Chain only');
+  check(await until(async () => /2 bounties · 5,000 WIF locked now/.test(await text(page, '#fRhLive')) && /2 bounties · 150 USDC locked now/.test(await text(page, '#fNearLive'))), 'the diagram carries each escrow’s live figures');
+  check(await until(async () => /✓ ShipEscrow’s attester\(\) and ✓ the NEAR escrow’s get_config/.test(await text(page, '#fAttesterLive'))), 'the diagram: both escrows name the same attester, read from each contract');
+  check(/✓/.test(await text(page, '#fRhSep')) && /✓/.test(await text(page, '#fNearSep')) && (await page.getAttribute('#fRhSep [title]', 'title')) !== (await page.getAttribute('#fNearSep [title]', 'title')), 'two different domain separators, each the one its escrow computes');
+
+  // The one list: both chains, a badge on every card, ordered by date.
+  check(await until(async () => (await page.locator('#allBounties > article.bounty').count()) === 4), 'one list holds all 4 funded bounties of both chains');
+  const order = await page.locator('#allBounties > article.bounty').evaluateAll((as) => as.map((a) => ({ id: a.id, start: Number(a.dataset.start), deadline: Number(a.dataset.deadline) })));
+  check(order.every((x, i) => i === 0 || order[i - 1].start >= x.start), `newest first by the day it opened: ${order.map((x) => x.id).join(', ')}`);
+  check((await page.locator('#allBounties > article.bounty .cb-robinhood').count()) === 2 && (await page.locator('#allBounties > article.bounty .cb-near').count()) === 2, 'every card carries its chain badge');
+  check(await until(async () => /^Time left to ship$/.test(await text(page, '#bounty-1 [data-rcount] .k')) && /^\d+d \d\dh \d\dm$/.test(await text(page, '#bounty-1 [data-rcount] .v'))), `a Robinhood Chain card counts down too: ${await text(page, '#bounty-1 [data-rcount] .v')}`);
+  check((await text(page, '#bounty-0 [data-rcount] .v')) === 'Paid out', 'and a paid one reads Paid out');
+  await reveal(page, '#near-bounty-1');
+  check(await until(async () => (await page.locator('#near-bounty-1 .ships a', { hasText: 'evidence' }).count()) === 3), 'counted ships with their evidence links on a NEAR card');
+  await reveal(page, '#bounty-1');
+  check(await until(async () => (await page.locator('#bounty-1 .ships a', { hasText: 'source' }).count()) === 1), 'and with their source links on a Robinhood Chain card');
+  const amountsShown = await page.locator('#allBounties > article.bounty').evaluateAll((as) => as.map((a) => a.dataset.on));
+  await page.click('#filter [data-show="near"]');
+  check(await until(async () => (await page.locator('#allBounties > article.bounty:visible').count()) === 2 && (await page.locator('#allBounties > article.bounty[data-on="robinhood"]:visible').count()) === 0), 'the NEAR filter shows only NEAR bounties');
+  check((await page.getAttribute('#filter [data-show="near"]', 'aria-pressed')) === 'true' && (await text(page, '#filter [data-show="near"] .ct')) === '2', 'and says NEAR 2');
+  await page.click('#filter [data-show="robinhood"]');
+  check(await until(async () => (await page.locator('#allBounties > article.bounty:visible').count()) === 2 && (await page.locator('#allBounties > article.bounty[data-on="near"]:visible').count()) === 0), 'the Robinhood Chain filter shows only Robinhood Chain bounties');
+  await page.click('#filter [data-show="all"]');
+  check((await page.locator('#allBounties > article.bounty:visible').count()) === 4, 'All shows all four again');
+  await page.click('#order [data-order="deadline"]');
+  const byDeadline = await page.locator('#allBounties > article.bounty').evaluateAll((as) => as.map((a) => a.id));
+  check(byDeadline[0] === 'near-bounty-1' && byDeadline[1] === 'bounty-1', `Ending soonest puts the open bounty with the nearest deadline first: ${byDeadline.join(', ')}`);
+  await page.click('#order [data-order="newest"]');
+  check(amountsShown.length === 4, 'the order never reads an amount (by date only)');
+
+  // The feed: both chains, newest first, each event linked to its transaction.
+  check(await until(async () => (await page.locator('#feedList li[data-kind]').count()) === 9), `the feed: 5 Robinhood Chain events and 4 NEAR events (${(await page.locator('#feedList li').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ')).join(' | ')})`);
+  const feedRows = await page.locator('#feedList li[data-kind]').evaluateAll((ls) => ls.map((l) => ({ kind: l.dataset.kind, on: l.dataset.on, at: Date.parse(l.querySelector('time')?.getAttribute('datetime') ?? ''), href: l.querySelector('.at a')?.href ?? '', text: l.innerText })));
+  check(feedRows.every((r, i) => i === 0 || feedRows[i - 1].at >= r.at), 'newest first');
+  check(feedRows.filter((r) => r.on === 'robinhood').every((r) => /^https:\/\/robinhoodchain\.blockscout\.com\/tx\/0x[0-9a-f]{64}$/.test(r.href)), 'every Robinhood Chain event links its transaction on Blockscout');
+  check(feedRows.filter((r) => r.on === 'near').every((r) => /^https:\/\/nearblocks\.io\/txns\/[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(r.href)), 'every NEAR event links its transaction on nearblocks');
+  check(feedRows.some((r) => r.kind === 'released' && /4,900 WIF to the builder, 100 burned · 3 ships counted/.test(r.text)), 'a release says what the builder got and what was burned');
+  check(['opened', 'funded', 'released'].every((k) => feedRows.some((r) => r.kind === k && r.on === 'robinhood')) && ['opened', 'funded'].every((k) => feedRows.some((r) => r.kind === k && r.on === 'near')), 'opened, funded and released events from both chains');
+  check(rh.logReads.length > 0 && rh.logReads.every((f) => Number(f.fromBlock) >= RH_FROM && f.address?.toLowerCase() === RH_ESCROW.toLowerCase()), 'Robinhood Chain events come from eth_getLogs on the escrow, from its deploy block');
+
+  // The HEY logo, header and footer.
+  check((await page.getAttribute('header a.hey', 'href')) === 'https://heyresearch.xyz' && (await page.getAttribute('header a.hey svg', 'aria-label')) === 'Hey Research Lab' && await page.isVisible('header a.hey svg'), 'the HEY mark in the header, labelled Hey Research Lab, links to heyresearch.xyz');
+  check((await page.getAttribute('footer a.hey', 'href')) === 'https://heyresearch.xyz' && (await page.getAttribute('footer a.hey svg', 'aria-label')) === 'Hey Research Lab', 'and in the footer');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: path.join(SHOTS, 'overview-desktop-light.png'), fullPage: false });
+  await page.locator('#bounties-section').screenshot({ path: path.join(SHOTS, 'list-desktop-light.png') });
+  await page.locator('#feed').screenshot({ path: path.join(SHOTS, 'feed-desktop-light.png') });
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+{
+  console.log('\n# NEAR transactions not readable: the feed says so and links the escrow');
+  near.txApi = false;
+  const { page, ctx, errors } = await newPage();
+  await page.goto(`${BASE}/`);
+  check(await until(async () => /NEAR transaction hashes could not be read just now/.test(await text(page, '#feedNote'))), 'the feed says NEAR’s transaction hashes could not be read');
+  const nearRows = await page.locator('#feedList li[data-on="near"]').evaluateAll((ls) => ls.map((l) => ({ kind: l.dataset.kind, href: l.querySelector('.at a')?.href })));
+  check(nearRows.length === 2 && nearRows.every((r) => r.kind === 'opened' && r.href === 'https://nearblocks.io/address/escrow.heyresearch.near'), 'NEAR bounties show when they opened, each linked to the escrow’s page, no hash made up');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  near.txApi = true;
+  await ctx.close();
+}
+{
+  console.log('\n# Verify a receipt');
+  hey.nearLive = true;
+  const txsBefore = near.txs.length, sentBefore = rh.sent.length;
+  const { page, ctx, errors } = await newPage();
+  await page.goto(`${BASE}/#verify`);
+  await page.click('#rcptExample');
+  check(await until(async () => (await page.getAttribute('#rcptOut', 'data-ok')) === 'true'), 'Try an example: a live HEY attestation for predict FWA checks out');
+  check(/^Signed by HEY for ShipEscrow on Robinhood Chain \(WIF\)$/.test(await text(page, '#rcptHead')), `it says: “${await text(page, '#rcptHead')}”`);
+  const att = JSON.parse(await page.inputValue('#rcpt'));
+  const digest = hashTypedData({ domain: rhDomain, types: SHIPS_TYPES, primaryType: 'Ships', message: { ...att.attestation, since: BigInt(att.attestation.since), until: BigInt(att.attestation.until), issuedAt: BigInt(att.attestation.issuedAt) } });
+  const out = await text(page, '#rcptOut');
+  check(out.includes(digest), 'the page shows the EIP-712 digest it rebuilt, the same as the escrow’s domain gives');
+  check(/Signed by HEY’s attester/.test(out) && out.includes(attester.address), 'it recovers HEY’s attester');
+  check(/chain 4663 with verifyingContract ShipEscrow/.test(out) && out.includes(RH_ESCROW), 'it says the domain binds ShipEscrow on Robinhood Chain');
+  check(/ShipEscrow’s own digest\(\) on Robinhood Chain returns the same digest/.test(out), 'and ShipEscrow’s own digest() agrees');
+  const lastAtt = hey.attestations.at(-1);
+  check(lastAtt.slug === 'predict-fwa' && lastAtt.escrow === RH_ESCROW && lastAtt.builder === TIES['predict-fwa'] && Number(lastAtt.until) < NOW(), 'the example asked HEY’s attestation route for predict FWA and the Robinhood Chain escrow, a closed window');
+  await page.locator('#verify').screenshot({ path: path.join(SHOTS, 'verify-desktop-light.png') });
+
+  // A wrong signer: the same attestation signed by another key.
+  const other = privateKeyToAccount(keccak256(stringToBytes('someone else')));
+  const message = { ...att.attestation, since: BigInt(att.attestation.since), until: BigInt(att.attestation.until), issuedAt: BigInt(att.attestation.issuedAt) };
+  const forged = { ...att, signature: await other.signTypedData({ domain: rhDomain, types: SHIPS_TYPES, primaryType: 'Ships', message }), digest: undefined };
+  await page.fill('#rcpt', JSON.stringify(forged));
+  await page.click('#rcptVerify');
+  check(await until(async () => (await page.getAttribute('#rcptOut', 'data-ok')) === 'false' && /Not signed by HEY’s attester/.test(await text(page, '#rcptHead'))), 'a wrong signer: “Not signed by HEY’s attester”');
+  check((await text(page, '#rcptOut')).includes(other.address), 'and it names the key that did sign');
+
+  // The same signature under NEAR's domain: a different digest, so it recovers someone else.
+  const moved = { ...att, domain: nearDomain, typedData: undefined, digest: undefined };
+  await page.fill('#rcpt', JSON.stringify(moved));
+  await page.click('#rcptVerify');
+  check(await until(async () => (await page.getAttribute('#rcptOut', 'data-ok')) === 'false' && /Not signed by HEY’s attester/.test(await text(page, '#rcptHead'))), 'a Robinhood Chain signature moved under NEAR’s domain does not verify: one attestation, one escrow');
+
+  // A NEAR one: the domain binds escrow.heyresearch.near, and the escrow's own recover_signer agrees.
+  const viewsBefore = near.views.length;
+  await page.click('#rcptExampleNear');
+  check(await until(async () => (await page.getAttribute('#rcptOut', 'data-ok')) === 'true' && (await page.getAttribute('#rcptOut', 'data-where')) === 'near'), 'Try a NEAR one: HEY’s NEAR attestation for Loom checks out');
+  const nearOut = await text(page, '#rcptOut');
+  check(/^Signed by HEY for escrow\.heyresearch\.near on NEAR \(USDC\)$/.test(await text(page, '#rcptHead')), `it says: “${await text(page, '#rcptHead')}”`);
+  check(/chain 397 \(NEAR mainnet\) with salt keccak256\("escrow\.heyresearch\.near"\)/.test(nearOut), 'it says the domain is chain 397 with the escrow’s salt');
+  check(/escrow\.heyresearch\.near’s own recover_signer recovers the same key and digest: is_attester: true/.test(nearOut) && near.views.slice(viewsBefore).includes('recover_signer'), 'and cross-checks with the escrow’s own recover_signer over RPC');
+  check(hey.attestations.at(-1).escrow === `near:${NEAR_ESCROW}` && hey.attestations.at(-1).slug === 'loom', 'the NEAR example asked for escrow=near:escrow.heyresearch.near');
+  await page.fill('#rcpt', '{"hello":1}');
+  await page.click('#rcptVerify');
+  check(await until(async () => /Not a HEY attestation/.test(await text(page, '#rcptHead'))), 'anything else: “Not a HEY attestation”');
+  check(near.txs.length === txsBefore && rh.sent.length === sentBefore, 'verifying sends nothing, on either chain');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+{
+  console.log('\n# Project view');
+  hey.nearLive = true;
+  const txsBefore = near.txs.length, sentBefore = rh.sent.length;
+  const { page, ctx, errors } = await newPage();
+  await page.goto(`${BASE}/?project=predict-fwa`);
+  check(await until(async () => (await text(page, '#pvName')) === 'predict FWA'), 'the project view opens for predict FWA');
+  check(await page.isHidden('#hero') && await page.isHidden('#figures'), 'the project leads; the overview steps aside');
+  check(await until(async () => (await page.locator('#allBounties > article.bounty:visible').count()) === 2), 'every bounty for predict FWA on both chains: 2');
+  const shownIds = await page.locator('#allBounties > article.bounty:visible').evaluateAll((as) => as.map((a) => a.id).sort());
+  check(shownIds.join() === 'bounty-0,near-bounty-1', `Robinhood Chain #0 and NEAR #1, nothing of fly.ai: ${shownIds.join(', ')}`);
+  check(await until(async () => (await page.getAttribute('#pvShips [data-ships]', 'data-ships')) === '10'), 'HEY’s counted ships, last 30 days: 10');
+  check((await page.locator('#pvShips .ships a', { hasText: 'evidence' }).count()) === 8 && /and 2 more/.test(await text(page, '#pvShips')), 'eight with their evidence links, and 2 more');
+  const sc = hey.shipsCalls.at(-1);
+  check(sc.slug === 'predict-fwa' && Number(sc.until) - Number(sc.since) === 30 * DAY && Number(sc.until) % 3600 === 0, 'read from the ships route over the last 30 closed days');
+  check((await page.inputValue('#pvLink')) === 'https://hey-research-lab.github.io/proof-of-ship/?project=predict-fwa', 'a copyable link to the project view');
+  const embed = await page.inputValue('#pvEmbed');
+  check(embed === '<a href="https://hey-research-lab.github.io/proof-of-ship/?project=predict-fwa"><img src="https://hey-research-lab.github.io/proof-of-ship/badge.svg" alt="Back predict FWA on Proof of Ship" width="236" height="32"></a>' && !/iframe|script/i.test(embed), 'an embed snippet: one <a> badge link, no iframe and no script');
+  await page.screenshot({ path: path.join(SHOTS, 'project-desktop-light.png'), fullPage: false });
+  await page.click('[data-back="near"]');
+  check(await until(async () => await page.isVisible('#nearView') && (await page.inputValue('#nSlug')) === 'predict-fwa'), 'Back on NEAR opens the NEAR form with the project filled in');
+  check(await until(async () => (await page.inputValue('#nBuilder')) === TIES['predict-fwa'] && /HEY ties this address/.test(await text(page, '#nBuilderHint'))), 'and the payout address HEY ties to it, checked');
+  await page.click('[data-back="robinhood"]');
+  check(await until(async () => await page.isVisible('#open') && (await page.inputValue('#slug')) === 'predict-fwa' && (await page.inputValue('#builder')) === TIES['predict-fwa']), 'Back on Robinhood Chain fills the Robinhood Chain form the same way');
+  check(near.txs.length === txsBefore && rh.sent.length === sentBefore, 'nothing is signed or sent by the project view');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+{
+  console.log('\n# Theme: System, Light, Dark');
+  const { page, ctx, errors } = await newPage({ scheme: 'dark' });
+  await page.goto(`${BASE}/`);
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  check((await page.getAttribute('#theme', 'data-mode')) === 'system' && (await bg()) === 'rgb(11, 14, 17)', 'by default the page follows the system (dark here)');
+  check(/Theme: follows your system/.test(await page.getAttribute('#theme', 'aria-label')), 'the toggle has an accessible label');
+  await page.click('#theme');
+  check((await page.getAttribute('html', 'data-theme')) === 'light' && (await bg()) === 'rgb(245, 246, 248)', 'one press: Light, whatever the system says');
+  check((await page.evaluate(() => localStorage.getItem('pos.theme'))) === 'light', 'remembered in this browser');
+  await page.reload();
+  check((await page.evaluate(() => document.documentElement.dataset.theme)) === 'light' && (await bg()) === 'rgb(245, 246, 248)', 'after a reload, still Light');
+  const firstPaint = await page.evaluate(() => performance.getEntriesByType('resource').some((r) => /theme\.js/.test(r.name)));
+  check(firstPaint && (await page.evaluate(() => [...document.head.querySelectorAll('script')].findIndex((s) => /theme\.js/.test(s.src)) >= 0 && !document.querySelector('script[src*="theme.js"]').type)), 'the theme is set by a classic script in <head>, before the page paints');
+  await page.click('#theme');
+  check((await page.getAttribute('html', 'data-theme')) === 'dark' && (await bg()) === 'rgb(11, 14, 17)', 'two presses: Dark');
+  await page.click('#theme');
+  check((await page.getAttribute('html', 'data-theme')) === null && (await page.evaluate(() => localStorage.getItem('pos.theme'))) === null, 'three: back to System, the choice forgotten');
+  await page.focus('#theme');
+  await page.keyboard.press('Enter');
+  check((await page.getAttribute('html', 'data-theme')) === 'light', 'the toggle works from the keyboard');
+  const ring = await page.evaluate(() => getComputedStyle(document.querySelector('#theme')).outlineStyle);
+  check(ring !== 'none', `with a visible focus ring (${ring})`);
+  await page.evaluate(() => localStorage.removeItem('pos.theme'));
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+for (const theme of ['light', 'dark']) {
+  console.log(`\n# Contrast and layout, ${theme}`);
+  for (const [w, h] of [[1280, 900], [400, 860]]) {
+    const { page, ctx, errors } = await newPage({ width: w, height: h, scheme: theme === 'dark' ? 'light' : 'dark' });
+    await page.addInitScript((t) => { try { localStorage.setItem('pos.theme', t); } catch { /* */ } }, theme);
+    await page.goto(`${BASE}/`);
+    await until(async () => (await page.locator('#feedList li[data-kind]').count()) > 0 && (await text(page, '#tCount')) !== '…');
+    await reveal(page, '#bounty-1');
+    await until(async () => !(await page.getAttribute('#bounty-1', 'data-pending')));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(300);
+    const name = `overview-${w === 400 ? 'mobile' : 'desktop'}-${theme}`;
+    if (w === 1280) {
+      const ratios = await contrastOf(page, TEXT_SELECTORS);
+      const low = ratios.filter((r) => r.ratio !== null && r.ratio < 4.5);
+      check(low.length === 0 && ratios.filter((r) => r.ratio !== null).length >= 16, `every text token reads at 4.5:1 or more (${theme}; lowest ${Math.min(...ratios.filter((r) => r.ratio).map((r) => r.ratio))}${low.length ? `; low: ${low.map((r) => `${r.sel} ${r.ratio}`).join(', ')}` : ''})`);
+      const mark = await page.evaluate(() => { const l = getComputedStyle(document.querySelector('header .mark .l')).fill; const i = getComputedStyle(document.querySelector('header .mark .i')).fill; return { l, i }; });
+      check(theme === 'dark' ? mark.i === 'rgb(233, 236, 240)' && mark.l === 'rgb(194, 251, 3)' : mark.i === 'rgb(11, 14, 17)' && mark.l === 'rgb(79, 122, 0)', `the HEY mark in ${theme}: ink ${mark.i}, lime ${mark.l}`);
+    }
+    await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage: w === 400 });
+    if (w === 400) {
+      await page.locator('#flow').screenshot({ path: path.join(SHOTS, `diagram-mobile-${theme}.png`) });
+      await page.locator('#figures').screenshot({ path: path.join(SHOTS, `figures-mobile-${theme}.png`) });
+      await page.locator('#bounty-1').screenshot({ path: path.join(SHOTS, `card-rh-mobile-${theme}.png`) });
+      for (const [sel, part] of [['#bounties-section', 'list'], ['#open-section', 'open'], ['#feed', 'feed'], ['#trust', 'trust'], ['footer', 'footer']]) {
+        await reveal(page, sel);
+        await page.locator(sel).screenshot({ path: path.join(SHOTS, `${part}-mobile-${theme}.png`) });
+      }
+    }
+    check(await noSideScroll(page), `${name}: no sideways scroll`);
+    check(errors.length === 0, `${name}: no page errors (${errors.join(' | ')})`);
+    await ctx.close();
+  }
+}
+for (const theme of ['light', 'dark']) {
+  const { page, ctx, errors } = await newPage({ width: 400, height: 860, scheme: theme });
+  await page.goto(`${BASE}/?project=loom`);
+  await until(async () => (await page.getAttribute('#pvShips [data-ships]', 'data-ships').catch(() => null)) !== null);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: path.join(SHOTS, `project-mobile-${theme}.png`), fullPage: false });
+  check(await noSideScroll(page), `project-mobile-${theme}: no sideways scroll`);
+  await page.goto(`${BASE}/#verify`);
+  await page.click('#rcptExampleNear');
+  await until(async () => (await page.getAttribute('#rcptOut', 'data-ok')) === 'true');
+  await page.locator('#verify').screenshot({ path: path.join(SHOTS, `verify-mobile-${theme}.png`) });
+  check(await noSideScroll(page), `verify-mobile-${theme}: no sideways scroll`);
+  check(errors.length === 0, `project and verify at 400 px, ${theme}: no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ================================================================== screenshots: 400 px, light and dark
 for (const [w, h, scheme] of [[1280, 900, 'dark'], [400, 860, 'light'], [400, 860, 'dark']]) {
   for (const chain of ['near', 'robinhood']) {
     const { page, ctx, errors } = await newPage({ width: w, height: h, scheme });
     await page.goto(`${BASE}/${chain === 'near' ? '?chain=near' : ''}`);
-    await until(async () => (await text(page, chain === 'near' ? '#nsCount' : '#sOpen')) !== '—');
+    await until(async () => (await text(page, chain === 'near' ? '#nsCount' : '#sOpen')) !== '…');
     await page.waitForTimeout(600);
     const name = `${chain}-${w === 400 ? 'mobile' : 'desktop'}-${scheme}`;
     await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage: w === 400 });
@@ -596,6 +925,7 @@ for (const [w, h, scheme] of [[1280, 900, 'dark'], [400, 860, 'light'], [400, 86
   }
 }
 
+check(live.length === 0, `no check reached a live host (${[...new Set(live)].slice(0, 5).join(' | ')})`);
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed');

@@ -2,63 +2,89 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.reown.com; img-src 'self' https: data:; connect-src 'self' https://heyresearch.xyz https://rpc.mainnet.chain.robinhood.com https://free.rpc.fastnear.com https://rpc.mainnet.near.org https://mw.rpc.fastnear.com https://api.fastnear.com wss://relay.walletconnect.org https://verify.walletconnect.org https://api.web3modal.org; frame-src https://verify.walletconnect.org https://verify.walletconnect.com https://secure.walletconnect.org; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.reown.com; img-src 'self' https: data:; connect-src 'self' https://heyresearch.xyz https://rpc.mainnet.chain.robinhood.com https://free.rpc.fastnear.com https://rpc.mainnet.near.org https://mw.rpc.fastnear.com https://api.fastnear.com https://tx.main.fastnear.com wss://relay.walletconnect.org https://verify.walletconnect.org https://api.web3modal.org; frame-src https://verify.walletconnect.org https://verify.walletconnect.com https://secure.walletconnect.org; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>Proof of Ship</title>
-<meta name="description" content="Back a builder with $WIF on Robinhood Chain or USDC on NEAR. It pays out only when Hey Research Lab counts real ships, each with its source.">
+<meta name="description" content="Pay builders for shipping, on Robinhood Chain in WIF or on NEAR in USDC. Hey Research Lab signs the count of real ships once; the escrow on that chain checks the signature and pays.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Proof of Ship by Hey Research Lab">
 <meta property="og:url" content="https://hey-research-lab.github.io/proof-of-ship/">
 <meta property="og:title" content="Proof of Ship">
-<meta property="og:description" content="Back a Robinhood Chain builder with $WIF. It pays out only when they ship.">
+<meta property="og:description" content="Pay builders for shipping. On any chain: WIF on Robinhood Chain, USDC on NEAR. It pays out only when they ship.">
 <meta property="og:image" content="https://hey-research-lab.github.io/proof-of-ship/og.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Proof of Ship. Back a Robinhood Chain builder with $WIF. It pays out only when they ship.">
+<meta property="og:image:alt" content="Proof of Ship by Hey Research Lab. Pay builders for shipping. On any chain: WIF on Robinhood Chain, USDC on NEAR.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Proof of Ship">
-<meta name="twitter:description" content="Back a Robinhood Chain builder with $WIF. It pays out only when they ship.">
+<meta name="twitter:description" content="Pay builders for shipping. On any chain: WIF on Robinhood Chain, USDC on NEAR. It pays out only when they ship.">
 <meta name="twitter:image" content="https://hey-research-lab.github.io/proof-of-ship/og.png">
-<meta name="twitter:image:alt" content="Proof of Ship. Back a Robinhood Chain builder with $WIF. It pays out only when they ship.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0d12'/%3E%3Cpath d='M9 17l5 5 9-12' stroke='%234cc38a' stroke-width='3.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<meta name="twitter:image:alt" content="Proof of Ship by Hey Research Lab. Pay builders for shipping. On any chain: WIF on Robinhood Chain, USDC on NEAR.">
+<link rel="icon" href="./hey-mark.svg" type="image/svg+xml">
 <link rel="preload" href="./vendor/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+<!-- The reader's chosen theme, applied before the first paint (a script of this site: the CSP allows no inline script). -->
+<script src="./theme.js?v=1"></script>
 <style>
 /* Geist and Geist Mono 1.7.2 (SIL OFL 1.1, vendor/fonts/OFL.txt), served from this site: no third-party stylesheet. */
 @font-face{font-family:'Geist';src:url('./vendor/fonts/Geist-Variable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
 @font-face{font-family:'Geist Mono';src:url('./vendor/fonts/GeistMono-Variable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+/* HEY's palette (hey-research-lab profile visuals): light first, dark when the system or the reader asks. */
 :root{
-  --bg:#f4f2ec;--bg2:#ece9e1;--surface:#fbfaf7;--raise:#ffffff;--ink:#0b0e13;--sec:#454d5a;--mut:#6a7280;
-  --line:rgba(11,14,19,.09);--line2:rgba(11,14,19,.16);--field:#ffffff;
-  --acc:#0f7a4c;--accSoft:rgba(15,122,76,.10);--accInk:#ffffff;
-  --amber:#8a5a00;--amberSoft:rgba(176,116,0,.12);--red:#a3271f;--redSoft:rgba(163,39,31,.10);
-  --shadow:0 1px 0 rgba(255,255,255,.7) inset,0 1px 2px rgba(11,14,19,.04),0 8px 24px -12px rgba(11,14,19,.12);
-  --sans:'Geist',ui-sans-serif,system-ui,-apple-system,sans-serif;--mono:'Geist Mono',ui-monospace,Menlo,monospace;
-  --r:16px;
+  color-scheme:light;
+  --bg:#f5f6f8;--bg2:#eceef2;--surface:#ffffff;--raise:#ffffff;--ink:#0b0e11;--sec:#4a525d;--mut:#5d6672;
+  --line:#dde1e7;--line2:#c9cfd8;--field:#ffffff;
+  --acc:#3f6a00;--accSoft:rgba(79,122,0,.12);--accInk:#ffffff;--lime:#4f7a00;
+  --amber:#855500;--amberSoft:rgba(176,116,0,.12);--red:#a3271f;--redSoft:rgba(163,39,31,.09);
+  --rh:#2c5fb8;--rhSoft:rgba(44,95,184,.10);--near:#6b46b8;--nearSoft:rgba(107,70,184,.10);
+  --shadow:0 1px 2px rgba(11,14,17,.04),0 10px 28px -16px rgba(11,14,17,.16);
+  --sans:'Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;--mono:'Geist Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+  --r:14px;
 }
-@media (prefers-color-scheme:dark){:root{
-  --bg:#090c11;--bg2:#0e131a;--surface:#111720;--raise:#151c26;--ink:#eef1f6;--sec:#b4bdcb;--mut:#8b95a5;
-  --line:rgba(238,241,246,.08);--line2:rgba(238,241,246,.16);--field:#0c1118;
-  --acc:#4cc38a;--accSoft:rgba(76,195,138,.12);--accInk:#06120c;
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#0b0e11;--bg2:#101419;--surface:#14181d;--raise:#191e24;--ink:#e9ecf0;--sec:#aab4c0;--mut:#8e99a7;
+  --line:#272d35;--line2:#3a424d;--field:#0f1317;
+  --acc:#c2fb03;--accSoft:rgba(194,251,3,.13);--accInk:#0b0e11;--lime:#c2fb03;
   --amber:#f0b44c;--amberSoft:rgba(240,180,76,.12);--red:#f08a80;--redSoft:rgba(240,138,128,.12);
-  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 10px 30px -14px rgba(0,0,0,.6);
+  --rh:#8fb4ff;--rhSoft:rgba(143,180,255,.12);--near:#c3a8ff;--nearSoft:rgba(195,168,255,.12);
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 12px 32px -16px rgba(0,0,0,.7);
 }}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0b0e11;--bg2:#101419;--surface:#14181d;--raise:#191e24;--ink:#e9ecf0;--sec:#aab4c0;--mut:#8e99a7;
+  --line:#272d35;--line2:#3a424d;--field:#0f1317;
+  --acc:#c2fb03;--accSoft:rgba(194,251,3,.13);--accInk:#0b0e11;--lime:#c2fb03;
+  --amber:#f0b44c;--amberSoft:rgba(240,180,76,.12);--red:#f08a80;--redSoft:rgba(240,138,128,.12);
+  --rh:#8fb4ff;--rhSoft:rgba(143,180,255,.12);--near:#c3a8ff;--nearSoft:rgba(195,168,255,.12);
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 12px 32px -16px rgba(0,0,0,.7);
+}
 *{box-sizing:border-box}
 html{background:var(--bg)}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
-body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
-  background:radial-gradient(900px 460px at 85% -10%,var(--accSoft),transparent 70%),radial-gradient(700px 380px at -10% 0%,var(--accSoft),transparent 70%)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit;text-underline-offset:3px}
-.wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:0 20px}
+.wrap{position:relative;max-width:1120px;margin:0 auto;padding:0 20px}
 .mono{font-family:var(--mono)}
 .muted{color:var(--mut)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* the HEY mark: ink in the text colour, the stroke in HEY's lime */
+.mark{display:block;flex:none}
+.mark .i{fill:currentColor}.mark .l{fill:var(--lime)}
 
 /* header */
-header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:20px 0}
-.brand{display:flex;align-items:center;gap:10px;font-weight:650;letter-spacing:-.01em;text-decoration:none}
-.brand svg{width:28px;height:28px;flex:none}
-.brand small{font-family:var(--mono);font-weight:400;font-size:12px;color:var(--mut);letter-spacing:.04em}
-.who{display:flex;align-items:center;gap:10px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand a{text-decoration:none}
+.brand .hey{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.brand .hey:hover{border-color:var(--line2)}
+.brand .hey .mark{height:22px;width:auto}
+.brand .name{display:grid;line-height:1.15}
+.brand .name b{font-weight:650;letter-spacing:-.01em;font-size:16px}
+.brand .name small{font-family:var(--mono);font-size:11.5px;color:var(--mut);letter-spacing:.04em}
+.who{display:flex;align-items:center;gap:8px}
+.tools{display:flex;align-items:center;gap:8px}
 .pill{font-family:var(--mono);font-size:12px;color:var(--sec);border:1px solid var(--line2);border-radius:999px;padding:6px 10px;background:var(--surface)}
 .pill:empty{display:none}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acc);margin-right:6px;vertical-align:1px}
@@ -72,34 +98,95 @@ button.go{background:var(--acc);color:var(--accInk);border-color:var(--acc)}
 button.go:hover{filter:brightness(1.06)}
 button:disabled{opacity:.45;cursor:not-allowed;transform:none}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button.icon{display:grid;place-items:center;width:40px;height:40px;padding:0;border-radius:10px}
+button.icon svg{width:18px;height:18px}
+#theme svg{display:none}
+#theme[data-mode="system"] .t-system,#theme[data-mode="light"] .t-light,#theme[data-mode="dark"] .t-dark{display:block}
+
+/* chain badge */
+.cb{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;line-height:1;padding:5px 9px;border-radius:999px;white-space:nowrap;border:1px solid transparent}
+.cb i{width:7px;height:7px;border-radius:2px;flex:none}
+.cb small{font-family:var(--mono);font-weight:500;font-size:11px;opacity:.85}
+.cb-robinhood{color:var(--rh);background:var(--rhSoft)}.cb-robinhood i{background:var(--rh)}
+.cb-near{color:var(--near);background:var(--nearSoft)}.cb-near i{background:var(--near);border-radius:50%}
 
 /* hero */
-.hero{display:grid;grid-template-columns:1.25fr .9fr;gap:40px;align-items:end;padding:44px 0 34px}
-.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);background:var(--accSoft);border-radius:999px;padding:5px 11px}
-h1{font-size:clamp(38px,6.2vw,66px);line-height:1.02;letter-spacing:-.04em;font-weight:650;margin:18px 0 0;text-wrap:balance}
-h1 em{font-style:normal;color:var(--acc)}
-.lede{font-size:18px;line-height:1.6;color:var(--sec);margin:18px 0 0;max-width:56ch}
-.stats{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
-.stat{padding:18px 18px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
-.stat:nth-child(2n){border-right:0}
-.stat:nth-child(n+3){border-bottom:0}
-.stat .k{font-size:12px;color:var(--mut);letter-spacing:.02em}
-.stat .v{font-size:26px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stat .v small{font-size:13px;font-weight:500;color:var(--mut);margin-left:4px}
+.hero{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;padding:40px 0 24px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--acc)}
+.eyebrow::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--acc)}
+h1{font-size:clamp(40px,6vw,68px);line-height:1;letter-spacing:-.045em;font-weight:680;margin:16px 0 0;text-wrap:balance}
+h1 em{font-style:normal;color:var(--lime);display:block}
+.lede{font-size:18px;line-height:1.6;color:var(--sec);margin:20px 0 0;max-width:52ch}
+.ctas{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+a.btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;line-height:1;border-radius:11px;padding:13px 18px;border:1px solid var(--line2);background:var(--surface);color:var(--ink);text-decoration:none}
+a.btn:hover{border-color:var(--ink)}
+a.btn.go{background:var(--acc);border-color:var(--acc);color:var(--accInk)}
+a.btn.go:hover{filter:brightness(1.06)}
 
+/* the diagram: one signature, two escrows, two domains */
+.flow{position:relative;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:var(--shadow);padding:18px}
+.flow .node{border:1px solid var(--line);border-radius:12px;background:var(--bg2);padding:14px;min-width:0}
+.flow .hey{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center}
+.flow .hey .mark{grid-row:span 3;height:34px;width:auto;color:var(--ink)}
+.flow .nk{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+.flow .nv{font-size:13px;overflow-wrap:anywhere}
+.flow p{margin:0;font-size:13.5px;line-height:1.45;color:var(--sec)}
+.flow .live{font-size:12.5px;color:var(--mut)}
+.flow .live b{color:var(--ink);font-weight:600}
+.flow .live .ok{color:var(--acc)}
+.flow .live .bad{color:var(--red)}
+.wires{display:block;width:100%;height:46px;overflow:visible}
+.wires path{fill:none;stroke:var(--line2);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.wires path.w{stroke:var(--acc);stroke-dasharray:3 7;animation:wire 1.8s linear infinite}
+@keyframes wire{to{stroke-dashoffset:-20}}
+.escrows{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.escrows .node{display:grid;gap:8px;align-content:start}
+.escrows .node h3{margin:0;font-size:15px;letter-spacing:-.01em;overflow-wrap:anywhere}
+.escrows dl{margin:0;display:grid;gap:0;border-top:1px solid var(--line)}
+.escrows dl div{display:grid;gap:1px;padding:6px 0;border-bottom:1px solid var(--line);min-width:0}
+.escrows dt{font-family:var(--mono);font-size:11px;color:var(--mut)}
+.escrows dd{margin:0;font-family:var(--mono);font-size:12.5px;color:var(--ink);min-width:0;overflow-wrap:anywhere}
+.escrows dd .ok{color:var(--acc)}.escrows dd .bad{color:var(--red)}
+.escrows h3 span{display:block;font-weight:500;font-size:13px;color:var(--sec)}
+.flow .foot{margin-top:14px;font-size:13px;color:var(--sec)}
+.flow .stamp{position:absolute;top:-11px;right:16px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:4px 8px;border-radius:999px;background:var(--ink);color:var(--bg)}
+
+/* figures */
+.figs-wrap{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow);overflow-x:auto}
+table.figs{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.figs th,.figs td{padding:12px 16px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+.figs tr:last-child th,.figs tr:last-child td{border-bottom:0}
+.figs thead th{font-size:12px;font-weight:500;color:var(--mut);background:var(--bg2)}
+.figs tbody th{font-size:14px;font-weight:550;color:var(--sec);white-space:nowrap}
+.figs td{font-size:20px;font-weight:650;letter-spacing:-.015em;white-space:nowrap}
+.figs td small{font-size:12px;font-weight:500;color:var(--mut);margin-left:4px;letter-spacing:0}
+.figs td.both{font-size:15px;font-weight:600;line-height:1.35}
+.figs td.both span{display:block}
+.figs td.note{font-size:13px;font-weight:500;color:var(--mut);white-space:normal}
+
+/* sections */
+section{margin-top:64px}
+.sh{display:flex;justify-content:space-between;align-items:baseline;gap:4px 12px;margin-bottom:14px;flex-wrap:wrap}
+h2{font-size:26px;letter-spacing:-.03em;margin:0;font-weight:660}
+.sh p{margin:0;font-size:14px;color:var(--mut)}
+.kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:0 0 8px}
+
+/* list bar: filter and date order */
+.listbar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.listbar .seg{display:inline-flex;flex:0 1 auto}
+.listbar .seg button{flex:0 1 auto;padding:9px 12px}
+.seg .ct{font-family:var(--mono);font-size:11.5px;font-weight:500;opacity:.75;margin-left:5px}
+.seg .ct:empty{display:none}
+#allBounties[data-show="near"]>article.bounty[data-on="robinhood"],#allBounties[data-show="robinhood"]>article.bounty[data-on="near"]{display:none}
+#bCount:not(:empty)+#nCount:not(:empty)::before{content:" · "}
+#rhMore:empty{display:none}
+#rhMore{margin-top:12px}
 /* steps */
 .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:8px 0 0}
 .step{position:relative;border:1px solid var(--line);border-radius:var(--r);padding:18px;background:var(--surface)}
 .step .n{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-family:var(--mono);font-size:13px;background:var(--accSoft);color:var(--acc);font-weight:500}
 .step h3{margin:12px 0 4px;font-size:16px;letter-spacing:-.01em}
 .step p{margin:0;font-size:14.5px;line-height:1.5;color:var(--sec)}
-
-/* sections */
-section{margin-top:56px}
-.sh{display:flex;justify-content:space-between;align-items:baseline;gap:4px 12px;margin-bottom:14px;flex-wrap:wrap}
-h2{font-size:24px;letter-spacing:-.025em;margin:0;font-weight:650}
-.sh p{margin:0;font-size:14px;color:var(--mut)}
-
 /* form */
 .composer{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
 .card{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow)}
@@ -240,7 +327,7 @@ form[inert]{opacity:.7}
 .contract{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .contract div{background:var(--surface);padding:12px 14px;min-width:0}
 .contract .k{font-size:12px;color:var(--mut)}
-.contract a{font-family:var(--mono);font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+.contract a,.contract span.mono{font-family:var(--mono);font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
 
 .news{display:grid;gap:10px;margin:0;padding:0}
 .news li{list-style:none;display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:baseline;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
@@ -251,7 +338,6 @@ form[inert]{opacity:.7}
 a.follow{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;text-decoration:none;color:var(--accInk);background:var(--acc);border-radius:11px;padding:10px 14px}
 a.follow:hover{filter:brightness(1.05)}
 @media (max-width:520px){.news li{grid-template-columns:1fr;gap:4px}}
-footer{margin:56px 0 0;padding:24px 0 48px;border-top:1px solid var(--line);font-size:13px;color:var(--mut);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 
 #toast{position:fixed;left:16px;right:16px;bottom:20px;margin:0 auto;width:fit-content;z-index:10;max-width:560px;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;font-size:14px;box-shadow:0 12px 40px -10px rgba(0,0,0,.4)}
 #toast:empty{display:none}
@@ -351,90 +437,275 @@ dialog#nConfirm::backdrop{background:rgba(0,0,0,.45)}
 #nConfirm .fine{font-size:13px;color:var(--mut)}
 @media (max-width:520px){.when{grid-template-columns:1fr}.when div{display:flex;justify-content:space-between;gap:12px}.when dd{margin:0;text-align:right}}
 
+
+/* cards: the chain badge and the state chip sit together */
+.bounty .tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+.bounty .tags .cb{padding:5px 9px}
+
+/* banners stack */
+.banners{display:grid;gap:12px;margin-top:20px}
+.banners:not(:has(> :not([hidden]))){display:none}
+
+/* project view */
+.pv{margin-top:28px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:var(--shadow);padding:22px;display:grid;gap:18px}
+.pv[hidden]{display:none}
+.pv-head{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.pv-head img,.pv-head .ph{width:56px;height:56px;border-radius:14px;flex:none;object-fit:cover;background:var(--line);font-size:22px}
+.pv-head h1{font-size:clamp(30px,5vw,44px);margin:0}
+.pv-head .sl{font-family:var(--mono);font-size:13px;color:var(--mut)}
+.pv-head .sl a{color:var(--sec)}
+.pv-grid{display:grid;grid-template-columns:1.15fr 1fr;gap:16px;align-items:start}
+.pv-side{display:grid;gap:16px;min-width:0}
+.pv .box{border:1px solid var(--line);border-radius:12px;background:var(--bg2);padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.pv .box h2{font-size:17px;letter-spacing:-.015em}
+.pv .box p{margin:0;font-size:14px;color:var(--sec);line-height:1.5}
+.pv .back{display:flex;gap:8px;flex-wrap:wrap}
+.pv textarea,.pv input.copy{width:100%;font-family:var(--mono);font-size:12px;line-height:1.5;padding:10px 12px;border:1px solid var(--line2);border-radius:10px;background:var(--field);color:var(--ink);resize:none}
+.pv input.copy{height:40px}
+.pv .row{display:flex;gap:8px;align-items:center}
+.pv .row>input,.pv .row>textarea{flex:1;min-width:0}
+.pv .close{justify-self:start;font-size:14px;color:var(--sec)}
+html[data-view="project"] #hero,html[data-view="project"] #figures{display:none}
+
+/* activity feed */
+.feed{margin:0;padding:0;list-style:none;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+.feed li{display:grid;grid-template-columns:132px 1fr auto;gap:6px 14px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.feed li:last-child{border-bottom:0}
+.feed .kind{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.feed .kind::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--mut)}
+.feed [data-kind="opened"] .kind::before{background:var(--sec)}
+.feed [data-kind="funded"] .kind::before{background:var(--amber)}
+.feed [data-kind="released"] .kind::before{background:var(--acc)}
+.feed [data-kind="refunded"] .kind::before{background:var(--red)}
+.feed .what{font-size:14px;color:var(--sec);min-width:0;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.feed .what b{color:var(--ink);font-weight:600}
+.feed .at{display:grid;justify-items:end;gap:2px;font-size:12.5px;color:var(--mut);white-space:nowrap;text-align:right}
+.feed .at a{font-family:var(--mono);font-size:12px;color:var(--sec)}
+.feed-note{font-size:13.5px;color:var(--mut);margin:10px 0 0}
+.feed-note:empty{display:none}
+#feedMore{margin-top:12px}
+#feedMore[hidden]{display:none}
+
+/* verify a receipt */
+.verify{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.verify .card{padding:18px;display:grid;gap:12px;min-width:0}
+.verify textarea{width:100%;min-height:220px;font-family:var(--mono);font-size:12px;line-height:1.5;padding:12px;border:1px solid var(--line2);border-radius:11px;background:var(--field);color:var(--ink);resize:vertical}
+.verify textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 4px var(--accSoft)}
+.verify .btns{display:flex;gap:8px;flex-wrap:wrap}
+.verify .btns button{padding:11px 14px;font-size:14px}
+.verdict{display:grid;gap:10px}
+.verdict[hidden]{display:none}
+.verdict .head{display:flex;gap:10px;align-items:center;font-weight:650;font-size:17px;letter-spacing:-.01em}
+.verdict .head i{width:12px;height:12px;border-radius:50%;flex:none;background:var(--mut)}
+.verdict[data-ok="true"] .head i{background:var(--acc)}
+.verdict[data-ok="false"] .head i{background:var(--red)}
+.verdict[data-ok="false"] .head{color:var(--red)}
+.checks{margin:0;padding:0;list-style:none;display:grid;gap:8px}
+.checks li{display:grid;grid-template-columns:20px 1fr;gap:8px;font-size:14px;line-height:1.45;color:var(--sec)}
+.checks li::before{content:"";width:16px;height:16px;border-radius:5px;margin-top:2px;background:var(--line);mask:none}
+.checks li[data-ok="true"]::before{background:var(--acc)}
+.checks li[data-ok="false"]::before{background:var(--red)}
+.checks li[data-ok="info"]::before{background:var(--line2)}
+.checks b{color:var(--ink);font-weight:600}
+.checks .mono{font-size:12px;overflow-wrap:anywhere;color:var(--ink)}
+.verify .empty-state{font-size:14px;color:var(--mut);margin:0}
+
+/* trust, both chains */
+.trust2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.trust2>div{display:grid;gap:12px;align-content:start;min-width:0}
+.trust2 .trust{grid-template-columns:1fr}
+.trust2 .contract{grid-template-columns:1fr;margin-top:0}
+.trust2 h3.col{margin:0;display:flex;align-items:center;gap:10px;font-size:15px}
+
+/* footer */
+footer{margin:64px 0 0;padding:28px 0 48px;border-top:1px solid var(--line);font-size:13px;color:var(--mut);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+footer .by{display:flex;align-items:center;gap:12px;min-width:0}
+footer .by a.hey{color:var(--ink);display:grid;place-items:center;flex:none}
+footer .by a.hey .mark{height:28px;width:21px}
+footer .by span{min-width:0}
+
+@media (max-width:960px){
+  .hero{grid-template-columns:1fr;gap:28px;padding-top:28px}
+  .pv-grid,.verify,.trust2{grid-template-columns:1fr}
+}
 @media (max-width:880px){
-  .hero,.composer{grid-template-columns:1fr}
-  .hero{padding-top:24px;gap:24px}
+  .composer{grid-template-columns:1fr}
   .preview{position:static}
   .steps,.trust,.contract{grid-template-columns:1fr}
   .facts{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:640px){
+  .feed li{grid-template-columns:1fr auto;}
+  .feed .what{grid-column:1/-1;grid-row:2}
+}
+@media (max-width:560px){
+  .escrows{grid-template-columns:1fr}
+  .wires{display:none}
+  .flow .hey{margin-bottom:12px}
+  .escrows{position:relative}
+  .flow{padding:14px}
 }
 @media (max-width:520px){
   .grid2{grid-template-columns:1fr}
   h2{font-size:22px}
   .hint{min-height:0}
-  .brand small{display:none}
-  .stat .v{font-size:22px}
+  .brand .name small{display:none}
+  /* the figures as one block per row: the figure's name, then its value on each chain and on both */
+  .figs thead{display:none}
+  .figs,.figs tbody{display:block}
+  .figs tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .figs tr:last-child{border-bottom:0}
+  .figs th,.figs td{padding:0;border:0}
+  .figs tbody th{grid-column:1/-1;font-size:13px;margin-bottom:4px}
+  .figs td{font-size:17px;white-space:normal}
+  .figs td::before{content:attr(data-k);display:block;font-size:11px;font-weight:500;letter-spacing:0;color:var(--mut);margin-bottom:2px}
+  .figs td.both{font-size:14px}
+  .listbar .seg{display:flex;width:100%}
+  .listbar .seg button{flex:1;padding:9px 6px}
+  .bounty .top{flex-direction:column}
+  .bounty .tags{justify-content:flex-start}
 }
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (max-width:400px){
+  header .acct .muted{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <a class="brand" href="./">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M9 17l5 5 9-12" stroke="var(--acc)" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Proof of Ship <small>by Hey Research Lab</small>
-    </a>
-    <div class="who" data-chain="robinhood"><button id="switchNet" class="warn" hidden>Switch to Robinhood Chain</button><button id="connect" class="primary">Connect wallet</button>
-      <div class="acct-wrap">
-        <button id="account" class="acct" hidden aria-haspopup="true" aria-controls="accountMenu"></button>
-        <div id="accountMenu" class="acct-menu" hidden role="menu">
-          <div class="acct-head"><span class="k" id="acctWallet">Wallet</span><span class="mono acct-addr" id="acctAddr"></span></div>
-          <div class="acct-row"><span class="k">Balance</span><span id="acctWif">—</span></div>
-          <button id="acctCopy" role="menuitem">Copy address</button>
-          <a id="acctExplorer" role="menuitem" target="_blank" rel="noopener" href="#">View on explorer ↗</a>
-          <button id="acctDisconnect" role="menuitem" class="danger">Disconnect</button>
-        </div>
-      </div></div>
-    <div class="who" data-chain="near" hidden><button id="nConnect" class="primary">Connect NEAR wallet</button>
-      <div class="acct-wrap">
-        <button id="nAccount" class="acct" hidden aria-haspopup="true" aria-controls="nAccountMenu"></button>
-        <div id="nAccountMenu" class="acct-menu" hidden role="menu">
-          <div class="acct-head"><span class="k" id="nAcctWallet">NEAR wallet</span><span class="mono acct-addr" id="nAcctAddr"></span></div>
-          <div class="acct-row"><span class="k">USDC on NEAR</span><span id="nAcctUsdc">—</span></div>
-          <button id="nAcctCopy" role="menuitem">Copy account</button>
-          <a id="nAcctExplorer" role="menuitem" target="_blank" rel="noopener" href="#">View on nearblocks ↗</a>
-          <button id="nAcctDisconnect" role="menuitem" class="danger">Disconnect</button>
-        </div>
-      </div></div>
+    <div class="brand">
+      <a class="hey" href="https://heyresearch.xyz" target="_blank" rel="noopener"><svg class="mark" viewBox="24 2 90 120" role="img" aria-label="Hey Research Lab"><title>Hey Research Lab</title><path class="i" d="M26 21C27 14 31 8.5 35.5 4.5C35 10.5 37.5 16.5 44 16.5L101 16.5C106.5 16.5 110.5 20.5 110.5 26L110.5 96C110.5 106 103 114 93 118.5L93.8 45L35 45C29.5 45 27.2 41.5 27 37Z"/><path class="l" d="M49 54.5C42 57.5 34.5 62 32.5 70.5L30 118C38.5 115 46 108 46.2 98C46.4 88 43 80.5 43.2 72C43.4 64 46 58.5 49 54.5Z"/></svg></a>
+      <a class="name" href="./"><b>Proof of Ship</b><small>by Hey Research Lab</small></a>
+    </div>
+    <div class="tools">
+      <button id="theme" class="icon" type="button" data-mode="system" aria-label="Theme: follows your system. Switch to light">
+        <svg class="t-system" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentColor"/></svg>
+        <svg class="t-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.6M12 18.9v2.6M21.5 12h-2.6M5.1 12H2.5M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8M18.7 18.7l-1.8-1.8M7.1 7.1 5.3 5.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg class="t-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="who" data-chain="robinhood"><button id="switchNet" class="warn" hidden>Switch to Robinhood Chain</button><button id="connect" class="primary">Connect wallet</button>
+        <div class="acct-wrap">
+          <button id="account" class="acct" hidden aria-haspopup="true" aria-controls="accountMenu"></button>
+          <div id="accountMenu" class="acct-menu" hidden role="menu">
+            <div class="acct-head"><span class="k" id="acctWallet">Wallet</span><span class="mono acct-addr" id="acctAddr"></span></div>
+            <div class="acct-row"><span class="k">Balance</span><span id="acctWif">…</span></div>
+            <button id="acctCopy" role="menuitem">Copy address</button>
+            <a id="acctExplorer" role="menuitem" target="_blank" rel="noopener" href="#">View on explorer ↗</a>
+            <button id="acctDisconnect" role="menuitem" class="danger">Disconnect</button>
+          </div>
+        </div></div>
+      <div class="who" data-chain="near" hidden><button id="nConnect" class="primary">Connect NEAR wallet</button>
+        <div class="acct-wrap">
+          <button id="nAccount" class="acct" hidden aria-haspopup="true" aria-controls="nAccountMenu"></button>
+          <div id="nAccountMenu" class="acct-menu" hidden role="menu">
+            <div class="acct-head"><span class="k" id="nAcctWallet">NEAR wallet</span><span class="mono acct-addr" id="nAcctAddr"></span></div>
+            <div class="acct-row"><span class="k">USDC on NEAR</span><span id="nAcctUsdc">…</span></div>
+            <button id="nAcctCopy" role="menuitem">Copy account</button>
+            <a id="nAcctExplorer" role="menuitem" target="_blank" rel="noopener" href="#">View on nearblocks ↗</a>
+            <button id="nAcctDisconnect" role="menuitem" class="danger">Disconnect</button>
+          </div>
+        </div></div>
+    </div>
   </header>
 
-  <div class="chains" id="chainSwitch">
-    <div class="seg" role="group" aria-label="Chain">
-      <button type="button" data-pick="robinhood" aria-pressed="true">Robinhood Chain<small>WIF</small></button>
-      <button type="button" data-pick="near" aria-pressed="false">NEAR<small>USDC</small></button>
-    </div>
-    <p data-chain="robinhood">Bounties in $WIF, released by ShipEscrow on Robinhood Chain.</p>
-    <p data-chain="near" hidden>Bounties in USDC, released by escrow.heyresearch.near on NEAR mainnet.</p>
-  </div>
+  <section id="projectView" class="pv" hidden aria-labelledby="pvName"></section>
 
-  <div data-chain="robinhood">
-
-  <div id="retiredBanner" class="banner retired" hidden role="alert"><h2>Escrow retired</h2><p>This escrow was retired by its guardian. Backers can take their $WIF back now.</p><p>Connect the wallet you backed with: every bounty you put $WIF into shows <b>Take back</b>. No bounty can be opened, added to or released.</p></div>
-  <div id="builderBanner" class="banner" hidden aria-live="polite"></div>
-
-  <div class="hero">
+  <div class="hero" id="hero">
     <div>
-      <span class="eyebrow">$WIF · Robinhood Chain</span>
-      <h1>Back a builder.<br>Pay them <em>when they ship.</em></h1>
-      <p class="lede">Lock $WIF behind a team building on Robinhood Chain. It reaches them only when Hey Research Lab counts real ships — releases, deployed contracts, code that changed — each with its public source. No ships by the deadline, and every backer takes their $WIF back.</p>
+      <span class="eyebrow">Proof of Ship · Robinhood Chain and NEAR</span>
+      <h1>Pay builders for shipping. <em>On any chain.</em></h1>
+      <p class="lede">Lock WIF on Robinhood Chain or USDC on NEAR behind a team that builds. Hey Research Lab counts their real ships, each with its public source, and signs that count once. The escrow on that chain checks HEY’s signature itself and pays the builder. No ships by the deadline, and every backer takes their money back.</p>
+      <div class="ctas"><a class="btn go" href="#open-section">Back a builder</a><a class="btn" href="#bounties-section">See the bounties</a><a class="btn" href="#verify">Verify a receipt</a></div>
     </div>
-    <div class="stats" aria-live="polite">
-      <div class="stat"><div class="k">$WIF locked</div><div class="v" id="sLocked">—</div></div>
-      <div class="stat"><div class="k">Open bounties</div><div class="v" id="sOpen">—</div></div>
-      <div class="stat"><div class="k">Paid to builders</div><div class="v" id="sPaid">—</div></div>
-      <div class="stat"><div class="k">Burned</div><div class="v" id="sBurned">—</div></div>
-    </div>
+    <figure class="flow" id="flow" aria-labelledby="flowCap">
+      <span class="stamp">read live</span>
+      <div class="node hey">
+        <svg class="mark" viewBox="24 2 90 120" aria-hidden="true"><path class="i" d="M26 21C27 14 31 8.5 35.5 4.5C35 10.5 37.5 16.5 44 16.5L101 16.5C106.5 16.5 110.5 20.5 110.5 26L110.5 96C110.5 106 103 114 93 118.5L93.8 45L35 45C29.5 45 27.2 41.5 27 37Z"/><path class="l" d="M49 54.5C42 57.5 34.5 62 32.5 70.5L30 118C38.5 115 46 108 46.2 98C46.4 88 43 80.5 43.2 72C43.4 64 46 58.5 49 54.5Z"/></svg>
+        <div class="nk">HEY attester · signs once per claim</div>
+        <div class="nv mono" id="fAttester" title="0x2b309b352Ff49d04912Ca34984B27a5481325760">0x2b309b352Ff49d04912Ca34984B27a5481325760</div>
+        <p class="live" id="fAttesterLive">Reading which key each escrow trusts…</p>
+      </div>
+      <svg class="wires" viewBox="0 0 400 46" preserveAspectRatio="none" aria-hidden="true"><path d="M200 0V10"/><path class="w" d="M200 10C200 30 100 22 100 46"/><path class="w" d="M200 10C200 30 300 22 300 46"/></svg>
+      <div class="escrows">
+        <div class="node" id="fRh">
+          <div><span class="cb cb-robinhood"><i aria-hidden="true"></i>Robinhood Chain<small>WIF</small></span></div>
+          <h3>ShipEscrow <span>pays WIF</span></h3>
+          <dl>
+            <div><dt>chainId</dt><dd>4663</dd></div>
+            <div><dt>verifyingContract</dt><dd title="0x3Da17a89F1d29aB96419269514C798a8dd6125f2">0x3Da1…25f2</dd></div>
+            <div><dt>separator</dt><dd id="fRhSep">…</dd></div>
+          </dl>
+          <p class="live" id="fRhLive">Reading the escrow…</p>
+        </div>
+        <div class="node" id="fNear">
+          <div><span class="cb cb-near"><i aria-hidden="true"></i>NEAR<small>USDC</small></span></div>
+          <h3>escrow.<wbr>heyresearch.near <span>pays USDC</span></h3>
+          <dl>
+            <div><dt>chainId</dt><dd>397</dd></div>
+            <div><dt>salt</dt><dd title="keccak256(&quot;escrow.heyresearch.near&quot;) = 0xce8386c18d1be8545f3d07ea9df2eacb21e6762d062f29ed8ab19224b9bded62">keccak256(account id)</dd></div>
+            <div><dt>separator</dt><dd id="fNearSep">…</dd></div>
+          </dl>
+          <p class="live" id="fNearLive">Reading the escrow…</p>
+        </div>
+      </div>
+      <figcaption class="foot" id="flowCap">One attestation, one escrow: each escrow rebuilds the EIP-712 digest under its own domain, so a signature made for Robinhood Chain never verifies on NEAR, or the other way round, and a bounty pays out once.</figcaption>
+    </figure>
   </div>
 
-  <div class="steps">
-    <div class="step"><div class="n">1</div><h3>Back</h3><p>Open a bounty for any project on HEY and lock $WIF in it. Anyone can add more.</p></div>
-    <div class="step"><div class="n">2</div><h3>Ship</h3><p>The builder ships. HEY reads it from its sources and counts it by the rule it uses on every page.</p></div>
-    <div class="step"><div class="n">3</div><h3>Release</h3><p>At the target, HEY signs the count and the $WIF goes to the builder, a slice burned. Miss it, and backers take it back.</p></div>
+  <section id="figures" aria-labelledby="figTitle" style="margin-top:12px">
+    <div class="sh"><h2 id="figTitle">Both escrows, read just now</h2><p>Each figure comes from the contract itself. WIF and USDC stay in their own units, never added up.</p></div>
+    <div class="figs-wrap">
+      <table class="figs">
+        <thead><tr><th scope="col"><span class="sr">Figure</span></th><th scope="col"><span class="cb cb-robinhood"><i aria-hidden="true"></i>Robinhood Chain<small>WIF</small></span></th><th scope="col"><span class="cb cb-near"><i aria-hidden="true"></i>NEAR<small>USDC</small></span></th><th scope="col">Both chains</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Bounties</th><td data-k="Robinhood Chain" id="sCount">…</td><td data-k="NEAR" id="nsCount">…</td><td data-k="Both chains" id="tCount">…</td></tr>
+          <tr><th scope="row">Open now</th><td data-k="Robinhood Chain" id="sOpen">…</td><td data-k="NEAR" id="nsOpen">…</td><td data-k="Both chains" id="tOpen">…</td></tr>
+          <tr><th scope="row">Locked now</th><td data-k="Robinhood Chain" id="sLocked">…</td><td data-k="NEAR" id="nsLocked">…</td><td class="both" data-k="Both chains" id="tLocked">…</td></tr>
+          <tr><th scope="row">Paid to builders</th><td data-k="Robinhood Chain" id="sPaid">…</td><td data-k="NEAR" id="nsPaid">…</td><td class="both" data-k="Both chains" id="tPaid">…</td></tr>
+          <tr><th scope="row">Builders paid</th><td data-k="Robinhood Chain" id="sBuilders">…</td><td data-k="NEAR" id="nsBuilders">…</td><td data-k="Both chains" id="tBuilders">…</td></tr>
+          <tr><th scope="row">Burned on payout</th><td data-k="Robinhood Chain" id="sBurned">…</td><td class="note" data-k="NEAR">No burn on NEAR</td><td class="both" data-k="Both chains" id="tBurned">…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="banners">
+    <div id="retiredBanner" class="banner retired" hidden role="alert"><h2>Robinhood Chain escrow retired</h2><p>This escrow was retired by its guardian. Backers can take their $WIF back now.</p><p>Connect the wallet you backed with: every bounty you put $WIF into shows <b>Take back</b>. No bounty can be opened, added to or released.</p></div>
+    <div id="nRetired" class="banner retired" hidden role="alert"><h2>NEAR escrow retired</h2><p>The NEAR escrow was retired by its guardian. Claims and new bounties are off for good, and every funder can take their USDC back now with <b>Take back</b> on the bounty.</p></div>
+    <div id="nSigning" class="banner note-b" hidden role="status"></div>
+    <div id="builderBanner" class="banner" hidden aria-live="polite"></div>
   </div>
 
-  <section id="open">
-    <div class="sh"><h2>Open a bounty</h2><p>Two wallet prompts: approve, then open.</p></div>
+  <section id="bounties-section">
+    <div class="sh"><h2>Bounties</h2><p><span id="bCount"></span><span id="nCount"></span></p></div>
+    <div class="listbar">
+      <div class="seg" id="filter" role="group" aria-label="Show bounties on">
+        <button type="button" data-show="all" aria-pressed="true">All<span class="ct"></span></button>
+        <button type="button" data-show="robinhood" aria-pressed="false">Robinhood Chain<span class="ct"></span></button>
+        <button type="button" data-show="near" aria-pressed="false">NEAR<span class="ct"></span></button>
+      </div>
+      <div class="seg" id="order" role="group" aria-label="Order by date">
+        <button type="button" data-order="newest" aria-pressed="true">Newest first</button>
+        <button type="button" data-order="deadline" aria-pressed="false">Ending soonest</button>
+      </div>
+    </div>
+    <div id="allBounties" class="list"><div class="skel" data-skel></div></div>
+    <p id="listEmpty" class="empty" hidden></p>
+    <div id="rhMore"></div>
+  </section>
+
+  <section id="open-section">
+    <div class="sh"><h2>Open a bounty</h2><p data-chain="robinhood">Two wallet prompts: approve, then open.</p><p data-chain="near" hidden>Two wallet prompts: open, then fund.</p></div>
+    <div class="chains" id="chainSwitch">
+      <div class="seg" role="group" aria-label="Chain">
+        <button type="button" data-pick="robinhood" aria-pressed="true">Robinhood Chain<small>WIF</small></button>
+        <button type="button" data-pick="near" aria-pressed="false">NEAR<small>USDC</small></button>
+      </div>
+      <p data-chain="robinhood">Bounties in $WIF, released by ShipEscrow on Robinhood Chain.</p>
+      <p data-chain="near" hidden>Bounties in USDC, released by escrow.heyresearch.near on NEAR mainnet.</p>
+    </div>
+    <div id="open" data-chain="robinhood">
     <div class="composer">
       <form id="create" class="card" novalidate>
         <div class="group">
@@ -481,7 +752,7 @@ dialog#nConfirm::backdrop{background:rgba(0,0,0,.45)}
             <div class="f">
               <label for="burn">Burn on payout</label>
               <div class="input"><input id="burn" name="burn" class="has-unit" type="number" inputmode="decimal" min="0" max="10" step="0.5" value="2" required><span class="unit">%</span></div>
-              <div class="hint">0–10%, sent to the dead address.</div>
+              <div class="hint">0 to 10%, sent to the dead address.</div>
             </div>
           </div>
         </div>
@@ -489,13 +760,13 @@ dialog#nConfirm::backdrop{background:rgba(0,0,0,.45)}
 
       <aside class="card preview" aria-live="polite">
         <div class="t">Bounty preview</div>
-        <div class="amt" id="pAmt">—</div>
+        <div class="amt" id="pAmt">…</div>
         <dl>
-          <div><dt>Builder receives</dt><dd id="pPay">—</dd></div>
-          <div><dt>Burned on payout</dt><dd id="pBurn">—</dd></div>
-          <div><dt>Releases at</dt><dd id="pShips">—</dd></div>
-          <div><dt>Ship by</dt><dd id="pBy">—</dd></div>
-          <div><dt>Refunds open</dt><dd id="pRefund">—</dd></div>
+          <div><dt>Builder receives</dt><dd id="pPay">…</dd></div>
+          <div><dt>Burned on payout</dt><dd id="pBurn">…</dd></div>
+          <div><dt>Releases at</dt><dd id="pShips">…</dd></div>
+          <div><dt>Ship by</dt><dd id="pBy">…</dd></div>
+          <div><dt>Refunds open</dt><dd id="pRefund">…</dd></div>
         </dl>
         <p class="sentence" id="pSentence">Enter a project and a payout address.</p>
         <p class="retired-note" id="retiredNote" hidden>The escrow is retired: no new bounty can be opened.</p>
@@ -503,60 +774,8 @@ dialog#nConfirm::backdrop{background:rgba(0,0,0,.45)}
         <p class="fine">You can take your $WIF back if the target isn't met.</p>
       </aside>
     </div>
-  </section>
-
-  <section id="bounties-section">
-    <div class="sh"><h2>Bounties</h2><p id="bCount"></p></div>
-    <div id="bounties" class="list"><div class="skel"></div></div>
-  </section>
-
-  <section id="news">
-    <div class="sh"><h2>What's new</h2><p>The latest first. Every update in full is on the hackathon page.</p></div>
-    <ul class="news">
-      <li><time datetime="2026-11-02">2 Nov</time><p><b>Opening a bounty got easier.</b> Search any project by name, ticker or contract, and the payout address HEY will sign for fills in by itself. A project HEY can't pay yet says why before you lock anything.</p></li>
-      <li><time datetime="2026-11-01">1 Nov</time><p><b>Bounty #1 opened</b> with 5,000 $WIF for fly.ai, released at 3 more ships.</p></li>
-      <li><time datetime="2026-10-26">26 Oct</time><p><b>Bounty #0 paid out.</b> predict FWA shipped 3 times and claimed 4,900 $WIF, 100 $WIF burned.</p></li>
-      <li><time datetime="2026-10-24">24 Oct</time><p><b>Live on Robinhood Chain:</b> an escrow with no owner, source verified on Sourcify, and it works on phones.</p></li>
-    </ul>
-    <div class="news-cta"><a class="follow" href="https://worldisflat.fun/build/projects/proof-of-ship" target="_blank" rel="noopener">Follow on World is Flat</a><span>Get every update, and vote when voting opens.</span></div>
-  </section>
-
-  <section>
-    <div class="sh"><h2>What you're trusting</h2></div>
-    <div class="trust">
-      <div class="card"><h3>No owner, no admin key</h3><p>Nobody can move the $WIF except to the builder the bounty named, or back to the backer who put it in.</p></div>
-      <div class="card"><h3>HEY signs a count, not a verdict</h3><p>Ships are counted by the rule HEY uses on every page. Bot commits, dependency bumps and docs-only weeks never count.</p></div>
-      <div class="card"><h3>A guardian that can only stop</h3><p>If HEY's signing key were ever lost, a separate cold key can retire the escrow: claims stop, every backer gets refunds at once.</p></div>
     </div>
-    <div class="contract" id="contractFacts"></div>
-  </section>
-  </div>
-  <div id="nearView" data-chain="near" hidden>
-  <div id="nRetired" class="banner retired" hidden role="alert"><h2>Escrow retired</h2><p>The NEAR escrow was retired by its guardian. Claims and new bounties are off for good, and every funder can take their USDC back now with <b>Take back</b> on the bounty.</p></div>
-  <div id="nSigning" class="banner note-b" hidden role="status"></div>
-
-  <div class="hero">
-    <div>
-      <span class="eyebrow">USDC · NEAR</span>
-      <h1>Back a builder.<br>Pay them <em>when they ship.</em></h1>
-      <p class="lede">Lock USDC on NEAR behind a team that builds. The escrow releases it only when Hey Research Lab signs that it counted real ships, each with its public source, and it checks that signature on chain. No ships by the deadline, and every funder takes their USDC back.</p>
-    </div>
-    <div class="stats" aria-live="polite">
-      <div class="stat"><div class="k">USDC in the escrow</div><div class="v" id="nsLocked">—</div></div>
-      <div class="stat"><div class="k">Open bounties</div><div class="v" id="nsOpen">—</div></div>
-      <div class="stat"><div class="k">Paid to builders</div><div class="v" id="nsPaid">—</div></div>
-      <div class="stat"><div class="k">Bounties on NEAR</div><div class="v" id="nsCount">—</div></div>
-    </div>
-  </div>
-
-  <div class="steps">
-    <div class="step"><div class="n">1</div><h3>Open, then fund</h3><p>Open a bounty for any project on HEY (0.01 NEAR for storage, the rest comes back), then lock USDC in it. Anyone can add more.</p></div>
-    <div class="step"><div class="n">2</div><h3>Ship</h3><p>The builder ships. HEY reads it from its sources and counts it by the rule it uses on every page.</p></div>
-    <div class="step"><div class="n">3</div><h3>Release</h3><p>Anyone submits HEY’s signed count. The escrow checks it with <span class="mono">ecrecover</span> and pays the builder’s NEAR account. Miss the target, and funders take it back.</p></div>
-  </div>
-
-  <section id="near-open">
-    <div class="sh"><h2>Open a bounty on NEAR</h2><p>Two wallet prompts: open, then fund.</p></div>
+    <div id="nearView" data-chain="near" hidden>
     <div class="composer">
       <form id="nCreate" class="card" novalidate autocomplete="off">
         <div class="group">
@@ -615,14 +834,14 @@ dialog#nConfirm::backdrop{background:rgba(0,0,0,.45)}
 
       <aside class="card preview" aria-live="polite">
         <div class="t">Bounty preview</div>
-        <div class="amt" id="nAmt">—</div>
+        <div class="amt" id="nAmt">…</div>
         <dl>
-          <div><dt>Builder receives</dt><dd id="nPay">—</dd></div>
-          <div><dt>Paid to</dt><dd id="nAccountOut">—</dd></div>
-          <div><dt>Payout</dt><dd id="nRoute">—</dd></div>
-          <div><dt>Releases at</dt><dd id="nShips">—</dd></div>
-          <div><dt>Ship by</dt><dd id="nBy">—</dd></div>
-          <div><dt>Refunds open</dt><dd id="nRefund">—</dd></div>
+          <div><dt>Builder receives</dt><dd id="nPay">…</dd></div>
+          <div><dt>Paid to</dt><dd id="nAccountOut">…</dd></div>
+          <div><dt>Payout</dt><dd id="nRoute">…</dd></div>
+          <div><dt>Releases at</dt><dd id="nShips">…</dd></div>
+          <div><dt>Ship by</dt><dd id="nBy">…</dd></div>
+          <div><dt>Refunds open</dt><dd id="nRefund">…</dd></div>
         </dl>
         <p class="sentence" id="nSentence">Enter a project and a payout address.</p>
         <p class="retired-note" id="nRetiredNote" hidden>The escrow is retired: no new bounty can be opened.</p>
@@ -631,14 +850,19 @@ dialog#nConfirm::backdrop{background:rgba(0,0,0,.45)}
         <p class="fine">No burn on NEAR: the builder gets all of it. Take your USDC back if the target isn't met.</p>
       </aside>
     </div>
+
+    </div>
   </section>
 
-  <section id="near-bounties-section">
-    <div class="sh"><h2>Bounties on NEAR</h2><p id="nCount"></p></div>
-    <div id="nBounties" class="list"><div class="skel"></div></div>
+  <section id="rh-how" data-chain="robinhood">
+    <div class="sh"><h2>How it works on Robinhood Chain</h2><p>ShipEscrow, with no owner and no admin key.</p></div>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>Back</h3><p>Open a bounty for any project on HEY and lock $WIF in it. Anyone can add more.</p></div>
+      <div class="step"><div class="n">2</div><h3>Ship</h3><p>The builder ships. HEY reads it from its sources and counts it by the rule it uses on every page.</p></div>
+      <div class="step"><div class="n">3</div><h3>Release</h3><p>At the target, HEY signs the count and the $WIF goes to the builder, a slice burned. Miss it, and backers take it back.</p></div>
+    </div>
   </section>
-
-  <section id="near-how">
+  <section id="near-how" data-chain="near" hidden>
     <div class="sh"><h2>How it works on NEAR</h2><p>One contract, <span class="mono">escrow.heyresearch.near</span>, with no owner and no admin method.</p></div>
     <div class="how">
       <div class="step"><div class="n">1</div><h3>Open</h3><p><code>create(builder, slug, min_ships, deadline, payout)</code> with 0.01 NEAR for storage. The window starts now.</p></div>
@@ -654,10 +878,10 @@ dialog#nConfirm::backdrop{background:rgba(0,0,0,.45)}
     </div>
   </section>
 
-  <section id="near-try">
+  <section id="near-try" data-chain="near" hidden>
     <div class="sh"><h2>Try it: do X, see Y</h2><p>No wallet needed until step 5.</p></div>
     <ol class="try">
-      <li><span class="do"><b>Do:</b> press <b>NEAR</b> at the top of this page.</span><span class="see"><b>See:</b> the escrow’s own figures, read live from <span class="mono">escrow.heyresearch.near</span> over public NEAR RPC, and its bounties with their state from <span class="mono">get_bounties</span>.</span></li>
+      <li><span class="do"><b>Do:</b> press <b>NEAR</b> on the list’s filter, then on the chain switch above the form.</span><span class="see"><b>See:</b> the escrow’s own figures beside Robinhood Chain’s, read live from <span class="mono">escrow.heyresearch.near</span> over public NEAR RPC, its bounties with their state from <span class="mono">get_bounties</span>, and the NEAR form.</span></li>
       <li><span class="do"><b>Do:</b> type <span class="mono">predict</span> in <b>Project on HEY</b> and pick predict FWA.</span><span class="see"><b>See:</b> the payout address fills in from HEY’s tie route, with the NEAR account it pays, <span class="mono">0x…</span> in lower case. When HEY’s signature for the NEAR escrow checks out, the hint turns green; if HEY is not signing for NEAR yet, the page says so and keeps Open off.</span></li>
       <li><span class="do"><b>Do:</b> switch <b>Payout</b> to NEAR Intents.</span><span class="see"><b>See:</b> the preview says the USDC goes into NEAR Intents for the same <span class="mono">0x…</span> account.</span></li>
       <li><span class="do"><b>Do:</b> ask the escrow and HEY directly, from a terminal.</span><span class="see"><b>See:</b> the fixed attester, USDC, chain id 397 and domain separator; then the addresses HEY would sign for.</span>
@@ -676,20 +900,77 @@ curl -s 'https://heyresearch.xyz/api/v1/proof-of-ship/tie?slug=predict-fwa'</pre
     </div>
   </section>
 
-  <section>
-    <div class="sh"><h2>What you're trusting on NEAR</h2></div>
-    <div class="trust">
-      <div class="card"><h3>No owner, no admin method</h3><p>The code moves USDC only to the builder the bounty names, or back to the funder who put it in. <span id="nKeys">The account’s access keys are read from NEAR when this view opens.</span></p></div>
-      <div class="card"><h3>HEY’s key, checked on chain</h3><p>The attester is fixed at init. A signature counts only under this escrow’s own domain (chain 397, a salt of its account id), so a Robinhood Chain or testnet signature never verifies here.</p></div>
-      <div class="card"><h3>A guardian that can only stop</h3><p><span class="mono">heyresearch.near</span> can retire the escrow: claims stop for good and every funder can refund at once. It can move no USDC.</p></div>
-    </div>
-    <div class="contract" id="nContractFacts"></div>
+
+  <section id="feed">
+    <div class="sh"><h2>Activity</h2><p>Bounties opened, funded, released and refunded on both chains, newest first, each linked to its transaction.</p></div>
+    <ol class="feed" id="feedList" aria-live="polite"><li class="feed-wait"><span class="muted">Reading both escrows…</span></li></ol>
+    <p class="feed-note" id="feedNote"></p>
+    <button type="button" id="feedMore" hidden>Show older activity</button>
   </section>
-  </div>
+
+  <section id="verify">
+    <div class="sh"><h2>Verify a receipt</h2><p>Check a HEY attestation in your browser: nothing is sent, no wallet needed.</p></div>
+    <div class="verify">
+      <div class="card">
+        <label for="rcpt"><b>HEY attestation JSON</b><br><span class="muted">As <span class="mono">/api/v1/proof-of-ship/attestation</span> returns it: <span class="mono">attestation</span>, <span class="mono">domain</span> or <span class="mono">typedData</span>, and <span class="mono">signature</span>.</span></label>
+        <textarea id="rcpt" spellcheck="false" autocomplete="off" placeholder='{"attestation":{…},"signature":"0x…","domain":{…}}'></textarea>
+        <div class="btns">
+          <button class="go" type="button" id="rcptVerify">Verify</button>
+          <button type="button" id="rcptExample">Try an example</button>
+          <button type="button" id="rcptExampleNear">Try a NEAR one</button>
+        </div>
+        <p class="hint" id="rcptHint">The example asks HEY for a live attestation for a real project; HEY signs it, nothing is paid.</p>
+      </div>
+      <div class="card" aria-live="polite">
+        <p class="empty-state" id="rcptIdle">The page rebuilds the EIP-712 digest from the attestation and its domain, recovers the key that signed it, and says whether that is HEY’s attester and which escrow and chain the signature binds to. For NEAR, the escrow’s own <span class="mono">recover_signer</span> is asked too.</p>
+        <div class="verdict" id="rcptOut" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="trust">
+    <div class="sh"><h2>What you’re trusting</h2><p>Two contracts, one rule: they pay only on HEY’s signature for that escrow.</p></div>
+    <div class="trust2">
+      <div>
+        <h3 class="col"><span class="cb cb-robinhood"><i aria-hidden="true"></i>Robinhood Chain<small>WIF</small></span> ShipEscrow</h3>
+        <div class="trust">
+          <div class="card"><h3>No owner, no admin key</h3><p>Nobody can move the $WIF except to the builder the bounty named, or back to the backer who put it in.</p></div>
+          <div class="card"><h3>HEY signs a count, not a verdict</h3><p>Ships are counted by the rule HEY uses on every page. Bot commits, dependency bumps and docs-only weeks never count.</p></div>
+          <div class="card"><h3>A guardian that can only stop</h3><p>If HEY’s signing key were ever lost, a separate cold key can retire the escrow: claims stop, every backer gets refunds at once.</p></div>
+        </div>
+        <div class="contract" id="contractFacts"></div>
+      </div>
+      <div>
+        <h3 class="col"><span class="cb cb-near"><i aria-hidden="true"></i>NEAR<small>USDC</small></span> escrow.heyresearch.near</h3>
+        <div class="trust">
+          <div class="card"><h3>No owner, no admin method</h3><p>The code moves USDC only to the builder the bounty names, or back to the funder who put it in. <span id="nKeys">The account’s access keys are read from NEAR when this page opens.</span></p></div>
+          <div class="card"><h3>HEY’s key, checked on chain</h3><p>The attester is fixed at init. A signature counts only under this escrow’s own domain (chain 397, a salt of its account id), so a Robinhood Chain or testnet signature never verifies here.</p></div>
+          <div class="card"><h3>A guardian that can only stop</h3><p><span class="mono">heyresearch.near</span> can retire the escrow: claims stop for good and every funder can refund at once. It can move no USDC.</p></div>
+        </div>
+        <div class="contract" id="nContractFacts"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="news">
+    <div class="sh"><h2>What’s new</h2><p>The latest first.</p></div>
+    <ul class="news">
+      <li><time datetime="2026-11-04">4 Nov</time><p><b>One page, both chains.</b> Every bounty on Robinhood Chain and NEAR in one list, the figures of both escrows side by side, an activity feed, a page per project and a receipt checker that runs in your browser.</p></li>
+      <li><time datetime="2026-11-03">3 Nov</time><p><b>Live on NEAR:</b> escrow.heyresearch.near checks HEY’s signature on chain and pays builders in USDC. The first two bounties back Loom.</p></li>
+      <li><time datetime="2026-11-02">2 Nov</time><p><b>Opening a bounty got easier.</b> Search any project by name, ticker or contract, and the payout address HEY will sign for fills in by itself. A project HEY can’t pay yet says why before you lock anything.</p></li>
+      <li><time datetime="2026-11-01">1 Nov</time><p><b>Bounty #1 opened</b> with 5,000 $WIF for fly.ai, released at 3 more ships.</p></li>
+      <li><time datetime="2026-10-26">26 Oct</time><p><b>Bounty #0 paid out.</b> predict FWA shipped 3 times and claimed 4,900 $WIF, 100 $WIF burned.</p></li>
+      <li><time datetime="2026-10-24">24 Oct</time><p><b>Live on Robinhood Chain:</b> an escrow with no owner, source verified on Sourcify, and it works on phones.</p></li>
+    </ul>
+    <div class="news-cta"><a class="follow" href="https://worldisflat.fun/build/projects/proof-of-ship" target="_blank" rel="noopener">Follow on World is Flat</a><span>Get every update, and vote when voting opens.</span></div>
+  </section>
 
   <footer>
-    <span>Built for the World is Flat hackathon and the NEAR HACKATHON by <a href="https://heyresearch.xyz">Hey Research Lab</a> · <a href="https://github.com/hey-research-lab/proof-of-ship">Page and Robinhood Chain escrow</a> · <a href="https://github.com/hey-research-lab/proof-of-ship-near">NEAR escrow</a></span>
-    <span>Not affiliated with Robinhood. Not financial advice.</span>
+    <div class="by">
+      <a class="hey" href="https://heyresearch.xyz" target="_blank" rel="noopener"><svg class="mark" viewBox="24 2 90 120" role="img" aria-label="Hey Research Lab"><title>Hey Research Lab</title><path class="i" d="M26 21C27 14 31 8.5 35.5 4.5C35 10.5 37.5 16.5 44 16.5L101 16.5C106.5 16.5 110.5 20.5 110.5 26L110.5 96C110.5 106 103 114 93 118.5L93.8 45L35 45C29.5 45 27.2 41.5 27 37Z"/><path class="l" d="M49 54.5C42 57.5 34.5 62 32.5 70.5L30 118C38.5 115 46 108 46.2 98C46.4 88 43 80.5 43.2 72C43.4 64 46 58.5 49 54.5Z"/></svg></a>
+      <span>Proof of Ship by <a href="https://heyresearch.xyz">Hey Research Lab</a>, for the World is Flat hackathon and the NEAR HACKATHON · <a href="https://github.com/hey-research-lab/proof-of-ship">Page and Robinhood Chain escrow</a> · <a href="https://github.com/hey-research-lab/proof-of-ship-near">NEAR escrow</a></span>
+    </div>
+    <span>Not affiliated with Robinhood or NEAR. Not financial advice.</span>
   </footer>
 </div>
 <div id="toast" role="status"></div>
@@ -712,7 +993,8 @@ curl -s 'https://heyresearch.xyz/api/v1/proof-of-ship/tie?slug=predict-fwa'</pre
   <div id="nearWalletList" class="wallet-list"></div>
   <p class="fine">NEAR mainnet. The wallet asks you to approve each transaction: opening a bounty, funding it, claiming or taking back. Reading bounties needs no wallet.</p>
 </dialog>
-<script type="module" src="./app.js?v=13"></script>
-<script type="module" src="./near.js?v=3"></script>
+<script type="module" src="./app.js?v=14"></script>
+<script type="module" src="./near.js?v=4"></script>
+<script type="module" src="./hub.js?v=1"></script>
 </body>
 </html>

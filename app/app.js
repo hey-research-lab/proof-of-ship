@@ -1,7 +1,8 @@
 import {
   createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits, getAddress, isAddress, keccak256, recoverTypedDataAddress, stringToBytes,
-} from './vendor/viem.js?v=7';
+} from './vendor/viem.js?v=8';
 import { CONFIG } from './config.js?v=8';
+import { badge, chainReady, emitStats, placeCard, removeCards, span } from './lib.js?v=1';
 
 // A page that signs approve, fund and claim never runs inside another site's frame: it says so, links to itself and
 // wires no action. GitHub Pages cannot send frame-ancestors, so the page checks for itself.
@@ -193,7 +194,7 @@ function renderAccount() {
   $('#account').innerHTML = `${icon}<span>${short(account)}</span>${heldWif !== null ? `<span class="muted">${compact(heldWif)} ${T.symbol}</span>` : ''}`;
   $('#acctWallet').textContent = walletInfo?.name ?? 'Wallet';
   $('#acctAddr').textContent = account;
-  $('#acctWif').textContent = heldWif !== null ? `${fmt(heldWif)} ${T.symbol}` : '—';
+  $('#acctWif').textContent = heldWif !== null ? `${fmt(heldWif)} ${T.symbol}` : '…';
   $('#acctExplorer').href = addrUrl(account);
 }
 
@@ -436,10 +437,10 @@ function renderPreview() {
   $('#pAmt').innerHTML = `${fmt(v.amount)}<small>${T.symbol}</small>`;
   $('#pPay').textContent = `${fmt(v.amount - burned)} ${T.symbol}`;
   $('#pBurn').textContent = `${fmt(burned)} ${T.symbol}`;
-  $('#pShips').textContent = `${v.minShips || '—'} ship${v.minShips === 1 ? '' : 's'}`;
+  $('#pShips').textContent = `${v.minShips || '…'} ship${v.minShips === 1 ? '' : 's'}`;
   const by = now() + v.days * 86400;
-  $('#pBy').textContent = v.days ? day(by) : '—';
-  $('#pRefund').textContent = v.days ? day(by + GRACE) : '—';
+  $('#pBy').textContent = v.days ? day(by) : '…';
+  $('#pRefund').textContent = v.days ? day(by + GRACE) : '…';
   $('#daysHint').textContent = v.days ? `Ships counted until ${day(by)}.` : '';
   const bh = $('#balHint'), btn = $('#openBtn');
   let over = false;
@@ -824,9 +825,12 @@ const SCAN = 100;       // bounty ids read from the chain per page at most
 const CHUNK = 10;       // ids read at once
 let listing = null;
 
+/** The list from the chain; a read that fails says so in the list instead of leaving it waiting. */
 async function load() {
-  const box = $('#bounties');
-  if (!CONFIG.escrow) { box.innerHTML = '<div class="empty">The escrow is being deployed. Bounties appear here as soon as it is live.</div>'; return; }
+  try { await readList(); } catch (err) { emitStats('robinhood', { failed: true }); chainReady('robinhood', 'The Robinhood Chain escrow could not be read just now.'); throw err; }
+}
+async function readList() {
+  if (!CONFIG.escrow) { chainReady('robinhood', 'The Robinhood Chain escrow is being deployed.'); return; }
   const [count, locked, retired] = await Promise.all([
     pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'bountyCount' }).then(Number),
     pub.readContract({ address: T.address, abi: ERC20, functionName: 'balanceOf', args: [CONFIG.escrow] }),
@@ -834,24 +838,28 @@ async function load() {
   ]);
   if (retired !== escrowRetired) { escrowRetired = retired; renderRetired(); }
   $('#sLocked').innerHTML = `${compact(locked)}<small>${T.symbol}</small>`;
+  lockedNow = locked;
   if (count === 0) {
-    box.innerHTML = '<div class="empty">No bounties yet. Open the first one above.</div>';
+    removeCards('robinhood');
+    $('#rhMore').replaceChildren();
     $('#sOpen').textContent = '0'; $('#sPaid').innerHTML = `0<small>${T.symbol}</small>`; $('#sBurned').innerHTML = `0<small>${T.symbol}</small>`;
     $('#bCount').textContent = '';
+    emitStats('robinhood', { count: 0, open: 0, locked, paid: 0n, burned: 0n, builders: [], decimals: T.decimals });
+    chainReady('robinhood');
     return;
   }
   listing?.observer?.disconnect();
-  listing = { count, next: count - 1, shown: 0, unfunded: 0, paid: 0n, burned: 0n, open: 0, observer: null, rows: [], atts: new Map() };
-  box.innerHTML = '';
+  listing = { count, next: count - 1, shown: 0, unfunded: 0, paid: 0n, burned: 0n, open: 0, builders: new Set(), observer: null, rows: [], atts: new Map() };
+  removeCards('robinhood');
   await more();
   // A #bounty-<id> link scrolls to its card once per visit; a later reload of the list (after an action) does not.
   if (!deepLinked && hashBounty() !== null) { deepLinked = true; goToBounty(hashBounty()).catch(() => undefined); }
 }
 
+let lockedNow = null;
 async function more() {
-  const box = $('#bounties');
   const l = listing;
-  box.querySelector('.more')?.remove();
+  $('#rhMore').replaceChildren();
   const funded = [];
   let read = 0;
   while (l.next >= 0 && funded.length < PAGE && read < SCAN) {
@@ -860,7 +868,7 @@ async function more() {
     const bounties = await Promise.all(ids.map((id) => pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'bounty', args: [BigInt(id)] })));
     ids.forEach((id, i) => {
       const b = bounties[i];
-      if (b.paid) { const x = (b.total * BigInt(b.burnBps)) / 10_000n; l.burned += x; l.paid += b.total - x; }
+      if (b.paid) { const x = (b.total * BigInt(b.burnBps)) / 10_000n; l.burned += x; l.paid += b.total - x; l.builders.add(b.builder.toLowerCase()); }
       else if (b.total > 0n && !escrowRetired && now() <= Number(b.deadline) + GRACE) l.open++;
       if (b.total === 0n) l.unfunded++;
       else funded.push({ id, b });
@@ -873,10 +881,11 @@ async function more() {
 
   // The totals are over every bounty only once every bounty has been read.
   const all = l.next < 0;
-  $('#sOpen').textContent = all ? String(l.open) : '—';
-  $('#sPaid').innerHTML = all ? `${compact(l.paid)}<small>${T.symbol}</small>` : '—';
-  $('#sBurned').innerHTML = all ? `${compact(l.burned)}<small>${T.symbol}</small>` : '—';
-  $('#bCount').textContent = `${l.count} bount${l.count === 1 ? 'y' : 'ies'} on chain${l.unfunded ? ` · ${l.unfunded} with nothing locked not shown` : ''}`;
+  $('#sOpen').textContent = all ? String(l.open) : '…';
+  $('#sPaid').innerHTML = all ? `${compact(l.paid)}<small>${T.symbol}</small>` : '…';
+  $('#sBurned').innerHTML = all ? `${compact(l.burned)}<small>${T.symbol}</small>` : '…';
+  $('#bCount').textContent = `${l.count} on Robinhood Chain${l.unfunded ? ` (${l.unfunded} with nothing locked not shown)` : ''}`;
+  if (all) emitStats('robinhood', { count: l.count, open: l.open, locked: lockedNow, paid: l.paid, burned: l.burned, builders: [...l.builders], decimals: T.decimals });
 
   if (!l.observer && 'IntersectionObserver' in window) {
     l.observer = new IntersectionObserver((entries) => {
@@ -892,16 +901,16 @@ async function more() {
     holder.innerHTML = renderBounty(row, { pending: true });
     const card = holder.firstElementChild;
     card.__row = row;
-    box.append(card);
+    placeCard(card);
     wireCard(card);
     if (l.observer) l.observer.observe(card); else hydrate(card).catch(() => undefined);
   }
-  if (!l.shown && l.next < 0) box.innerHTML = '<div class="empty">No funded bounties yet. Open one above.</div>';
   if (l.next >= 0) {
-    const btn = Object.assign(document.createElement('button'), { className: 'more', textContent: 'Show more bounties' });
+    const btn = Object.assign(document.createElement('button'), { className: 'more', textContent: 'Show more Robinhood Chain bounties' });
     btn.addEventListener('click', () => { btn.disabled = true; more().catch(fail); });
-    box.append(btn);
+    $('#rhMore').append(btn);
   }
+  chainReady('robinhood');
   renderBanner();
 }
 
@@ -1068,7 +1077,7 @@ function renderBounty({ id, b, slug }, hey) {
     note = mine > 0n ? RETIRED_MESSAGE : 'This escrow was retired by its guardian: this bounty can no longer be released or added to, and its backers can take their $WIF back now.';
   } else if (!b.paid && !slugOk) {
     blocked = true;
-    note = `This bounty cannot be released — the slug it was opened with is not a HEY slug; backers can refund after ${day(graceEnd)}.`;
+    note = `This bounty cannot be released: the slug it was opened with is not a HEY slug. Backers can refund after ${day(graceEnd)}.`;
   } else if (signed) {
     have = Number(att.body.attestation.ships);
   } else if (att?.status === 403) {
@@ -1115,22 +1124,30 @@ function renderBounty({ id, b, slug }, hey) {
     actions.push(`<a class="share" href="${esc(xIntent(tell))}" target="_blank" rel="noopener">Tell the builder</a>`);
   }
   if (slugOk) actions.push(`<button class="link-btn" type="button" data-copy-link="${id}">Copy link</button><input class="linkbox mono" readonly hidden aria-label="Link to bounty #${id}">`);
+  if (slugOk) actions.push(`<a class="link-btn" href="./?project=${encodeURIComponent(slug)}">Project view</a>`);
   const list = signed ? countedShips(att, ships) : '';
   const progressLabel = b.paid ? 'Released' : have === null ? 'Ships HEY counted' : `${have} of ${need} ships counted`;
   const where = slugOk
     ? `<a class="slug" href="${CONFIG.hey}/project/${encodeURIComponent(slug)}" target="_blank" rel="noopener">heyresearch.xyz/project/${esc(slug)}</a>`
     : '<span class="slug">opened with a slug that is not a HEY slug</span>';
-  return `<article class="card bounty" id="bounty-${id}"${pending ? ' data-pending="1"' : ''}>
+  const status = b.paid ? 'paid' : retired ? 'retired' : 'open';
+  const [leftK, leftV] = countdownParts(Number(b.deadline), status);
+  return `<article class="card bounty" id="bounty-${id}" data-on="robinhood" data-slug="${slugOk ? esc(slug) : ''}" data-start="${Number(b.start)}" data-deadline="${Number(b.deadline)}"${pending ? ' data-pending="1"' : ''}>
     <div class="top">
       <div class="id">${logo(project?.logoUrl, name)}<div><span class="name">${esc(name)}</span>${where}</div></div>
-      <span class="chip ${state[0]}">${state[1]}</span>
+      <div class="tags">${badge('robinhood')}<span class="chip ${state[0]}">${state[1]}</span></div>
     </div>
     <div class="facts">
       <div class="fact"><div class="k">Locked</div><div class="v">${fmt(b.total)} ${T.symbol}</div></div>
-      <div class="fact"><div class="k">Ship by</div><div class="v">${day(b.deadline)}</div></div>
+      <div class="fact left" data-rcount data-deadline="${Number(b.deadline)}" data-status="${status}"><div class="k">${leftK}</div><div class="v">${leftV}</div></div>
       <div class="fact"><div class="k">Burn on payout</div><div class="v">${(Number(b.burnBps) / 100).toFixed(1)}%</div></div>
       <div class="fact"><div class="k">Pays</div><div class="v"><a class="mono" href="${addrUrl(b.builder)}" target="_blank" rel="noopener">${short(b.builder)}</a></div></div>
     </div>
+    <dl class="when">
+      <div><dt>Ship by</dt><dd data-when="ship">${utcShort(Number(b.deadline))}</dd></div>
+      <div><dt>Claim until</dt><dd data-when="claim">${utcShort(graceEnd)}</dd></div>
+      <div><dt>Refunds from</dt><dd data-when="refund">${utcShort(graceEnd + 1)}</dd></div>
+    </dl>
     <div class="progress">
       <div class="lbl"><span>${progressLabel}</span><span>${b.paid ? '' : `target ${need}`}</span></div>
       <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${need}" aria-valuenow="${have ?? 0}"><i style="width:${pct}%"></i></div>
@@ -1139,6 +1156,29 @@ function renderBounty({ id, b, slug }, hey) {
     <div class="actions">${actions.join('')}<span class="mono">#${id} · opened ${day(b.start)}${mine > 0n ? ` · you locked ${fmt(mine)} ${T.symbol}` : ''}</span></div>
   </article>`;
 }
+
+// ------------------------------------------------------------------ the card's countdown
+const pad2 = (x) => String(x).padStart(2, '0');
+const utcShort = (s) => { const d = new Date(Number(s) * 1000); return `${day(s)}, ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())} UTC`; };
+/** What is left to ship, then to claim, then nothing: by the reader's clock, like the NEAR cards. */
+function countdownParts(deadline, status) {
+  const t = now();
+  if (status === 'paid') return ['Time left', 'Paid out'];
+  if (status === 'retired') return ['Time left', 'Escrow retired'];
+  if (t < deadline) return ['Time left to ship', span(deadline - t)];
+  if (t <= deadline + GRACE) return ['Time left to claim', span(deadline + GRACE - t)];
+  return ['Time left', 'Closed'];
+}
+function tickCountdowns() {
+  document.querySelectorAll('[data-rcount]').forEach((el) => {
+    const [k, v] = countdownParts(Number(el.dataset.deadline), el.dataset.status);
+    const kEl = el.querySelector('.k'), vEl = el.querySelector('.v');
+    if (kEl.textContent !== k) kEl.textContent = k;
+    if (vEl.textContent !== v) vEl.textContent = v;
+  });
+}
+// Once a minute, on the minute: only the countdown's text changes, in a cell of fixed height.
+setTimeout(() => { tickCountdowns(); setInterval(tickCountdowns, 60_000); }, (60 - new Date().getSeconds()) * 1000);
 
 /** A factual post for X about one bounty: open (what it pays and when) or paid (what the builder received). */
 const PAGE_LINK = 'hey-research-lab.github.io/proof-of-ship';
@@ -1188,7 +1228,7 @@ async function act(kind, id) {
       pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'bounty', args: [BigInt(id)] }),
       pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'slugOf', args: [BigInt(id)] }),
     ]);
-    if (!bountySlugOk(slug, b.project)) throw new Error('This bounty cannot be released — the slug it was opened with is not a HEY slug — so nothing more can be added.');
+    if (!bountySlugOk(slug, b.project)) throw new Error('This bounty cannot be released (the slug it was opened with is not a HEY slug), so nothing more can be added.');
     // Asked again now, whatever the card showed when it was drawn: $WIF is added only to a payout HEY ties today.
     const tie = await builderTie(slug, b.builder);
     if (!tie.ok) throw new Error(tie.known ? `Nothing was added. ${tie.text}` : 'HEY can’t be reached right now, so nothing was added. Try again shortly.');
@@ -1200,7 +1240,7 @@ async function act(kind, id) {
     if (await readRetired()) throw new Error(RETIRED_MESSAGE);
     const b = await pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'bounty', args: [BigInt(id)] });
     const slug = await pub.readContract({ address: CONFIG.escrow, abi: ABI, functionName: 'slugOf', args: [BigInt(id)] });
-    if (!bountySlugOk(slug, b.project)) throw new Error('This bounty cannot be released — the slug it was opened with is not a HEY slug.');
+    if (!bountySlugOk(slug, b.project)) throw new Error('This bounty cannot be released: the slug it was opened with is not a HEY slug.');
     toast('Asking HEY to sign the ship count…', true);
     // HEY signs only for a payout address the project verified to HEY; the escrow checks it equals the bounty's builder.
     const res = await heyAttestation(slug, b.builder, Number(b.start), Math.min(now() - 120, Number(b.deadline)));
