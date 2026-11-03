@@ -8,7 +8,7 @@ checked against [`SHA256SUMS`](SHA256SUMS).
 |---|---|---|---|
 | `viem.js` | `viem` 2.21.55 | `vendor-build/viem/entry.js` — only the functions `app.js` imports | esbuild 0.25.12 |
 | `walletconnect.js` | `@walletconnect/ethereum-provider` 2.26.0 (with `@reown/appkit` 1.8.19 and its tree as locked) | `vendor-build/walletconnect/entry.js` — `EthereumProvider` | esbuild 0.25.12 |
-| `near.js` | `@near-wallet-selector/core`, `@near-wallet-selector/meteor-wallet` and `@near-wallet-selector/my-near-wallet` 10.1.4 (with `buffer` 6.0.3 and `util` 0.12.5 for the browser) | `vendor-build/near/entry.js`: `setupWalletSelector`, `actionCreators`, `setupMeteorWallet`, `setupMyNearWallet` | esbuild 0.25.12, with `--define:global=globalThis` and `vendor-build/near/process-shim.js` injected |
+| `near.js` | `@near-wallet-selector/core`, `@near-wallet-selector/meteor-wallet` and `@near-wallet-selector/my-near-wallet` 10.1.4 (with `buffer` 6.0.3 and `util` 0.12.5 for the browser) | `vendor-build/near/entry.js`: `setupWalletSelector`, `actionCreators`, `setupMeteorWallet`, `setupMyNearWallet` | esbuild 0.25.12, with `--define:global=globalThis` and `vendor-build/near/process-shim.js` (process and Buffer) injected |
 | `fonts/Geist-Variable.woff2`, `fonts/GeistMono-Variable.woff2`, `fonts/OFL.txt` | `geist` 1.7.2 (Vercel, SIL Open Font License 1.1) | copied as is from the npm package's `dist/fonts/` and `LICENSE.txt` | — |
 
 ## Rebuild and check
