@@ -17,7 +17,7 @@ build() {
 build viem
 {
   printf '%s\n' "/*! viem 2.21.55 (MIT, https://github.com/wevm/viem), bundled once with esbuild 0.25.12 from the npm package: only the"
-  printf '%s\n' "    functions app.js imports. Served from this site, so the page loads no third-party script at runtime. */"
+  printf '%s\n' "    functions the page imports. Served from this site, so the page loads no third-party script at runtime. */"
   cat "$root/vendor-build/viem/out.js"
 } >"$out/viem.js"
 
