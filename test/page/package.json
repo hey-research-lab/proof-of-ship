@@ -9,5 +9,8 @@
   "devDependencies": {
     "playwright-core": "1.62.1",
     "viem": "2.21.55"
+  },
+  "overrides": {
+    "ws": "8.21.0"
   }
 }
