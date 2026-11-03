@@ -62,7 +62,7 @@ for that team, each with its public source; if the target is not met by the dead
 | **HEY signs a count, not a verdict** | The signature says how many ships HEY counted for the project in the bounty's window. It does not say the project is good, safe or worth funding. |
 | **One ship of each kind a day** | For a bounty, HEY counts at most one release, one contract deployment or upgrade, one code week and one other entry per day, and only ships it first recorded inside the window. |
 | **Paid only to a wallet HEY ties to the project** | Either the deployer of the project's token, once HEY reads that token as the project's own, or a wallet that signed the project's claim on HEY for that token. HEY never signs for any other address. |
-| **Source verified** | [Sourcify exact match](https://repo.sourcify.dev/4663/0x3Da17a89F1d29aB96419269514C798a8dd6125f2): the code in `src/` is the code that holds the $WIF. 33 contract tests, with fuzz tests at 2,000 runs, including the whole flow against the real $WIF on a fork. |
+| **Source verified** | [Sourcify exact match](https://repo.sourcify.dev/4663/0x3Da17a89F1d29aB96419269514C798a8dd6125f2): the code in `src/` is the code that holds the $WIF. 38 contract tests, with fuzz tests at 2,000 runs, including the whole flow against the real $WIF on a fork (run when `FORK_RPC` is set). |
 
 ## For builders
 
@@ -190,7 +190,7 @@ bundled into `app/vendor/` and the page sets `script-src 'self'`).
 
 ```bash
 forge install
-forge test                                                              # 33 tests
+forge test                                                              # 37 tests; the fork test skips without FORK_RPC
 FORK_RPC=https://rpc.mainnet.chain.robinhood.com forge test --mc Fork   # the full flow with the real $WIF
 python3 -m http.server -d app                                           # the app: static, no build step
 sh vendor-build/build.sh                                                # rebuild app/vendor and check SHA256SUMS
@@ -214,7 +214,9 @@ could have been paid by a real project's ships. Now HEY signs it and the escrow 
 audit found two ways to game the count: work pushed after the deadline and dated back, and many small entries in one
 day. Both are closed: only ships first recorded inside the window count, and at most one of each kind a day.
 
-The tests cover impostor payees, replays across bounties, escrows and chains, malleable signatures and reentrant tokens.
+The tests cover impostor payees, replays across bounties, escrows and chains, malleable signatures and reentrant tokens
+([`test/ShipEscrow.replay.t.sol`](test/ShipEscrow.replay.t.sol) holds the last three: a chain-id change, a high-s signature and
+a token hook re-entering `claim`, `refund` and `fund`).
 What the escrow trusts, and how to report a vulnerability privately: [SECURITY.md](SECURITY.md).
 
 </details>

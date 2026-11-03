@@ -13,7 +13,10 @@ contract ShipEscrowForkTest is Test {
 
     function test_realWifBountyFlow() public {
         string memory rpc = vm.envOr("FORK_RPC", string(""));
-        if (bytes(rpc).length == 0) return;
+        if (bytes(rpc).length == 0) {
+            vm.skip(true, "set FORK_RPC to run the fork test");
+            return;
+        }
         vm.createSelectFork(rpc);
         assertEq(block.chainid, 4663);
 
