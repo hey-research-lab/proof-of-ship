@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.reown.com; img-src 'self' https: data:; connect-src 'self' https://heyresearch.xyz https://rpc.mainnet.chain.robinhood.com wss://relay.walletconnect.org https://verify.walletconnect.org https://api.web3modal.org; frame-src https://verify.walletconnect.org https://verify.walletconnect.com https://secure.walletconnect.org; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.reown.com; img-src 'self' https: data:; connect-src 'self' https://heyresearch.xyz https://rpc.mainnet.chain.robinhood.com https://free.rpc.fastnear.com https://rpc.mainnet.near.org https://mw.rpc.fastnear.com https://api.fastnear.com wss://relay.walletconnect.org https://verify.walletconnect.org https://api.web3modal.org; frame-src https://verify.walletconnect.org https://verify.walletconnect.com https://secure.walletconnect.org; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Proof of Ship</title>
-<meta name="description" content="Back a Robinhood Chain builder with $WIF. It pays out only when Hey Research Lab counts real ships, each with its source.">
+<meta name="description" content="Back a builder with $WIF on Robinhood Chain or USDC on NEAR. It pays out only when Hey Research Lab counts real ships, each with its source.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Proof of Ship by Hey Research Lab">
 <meta property="og:url" content="https://hey-research-lab.github.io/proof-of-ship/">
@@ -272,8 +272,8 @@ button.acct .muted{color:var(--mut)}
 .acct-menu>button.danger{color:var(--red)}
 button.warn{background:var(--amberSoft);color:var(--amber);border-color:transparent;font-size:13px;padding:9px 12px}
 button.warn[hidden]{display:none}
-dialog#wallets{border:1px solid var(--line2);border-radius:18px;background:var(--surface);color:var(--ink);padding:20px;width:min(420px,calc(100% - 32px));box-shadow:0 30px 80px -20px rgba(0,0,0,.5)}
-dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
+dialog#wallets,dialog#nearWallets{border:1px solid var(--line2);border-radius:18px;background:var(--surface);color:var(--ink);padding:20px;width:min(420px,calc(100% - 32px));box-shadow:0 30px 80px -20px rgba(0,0,0,.5)}
+dialog#wallets::backdrop,dialog#nearWallets::backdrop{background:rgba(0,0,0,.45)}
 .dlg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .dlg-head h2{font-size:19px;margin:0}
 .dlg-head button{padding:6px 10px;border-radius:9px}
@@ -282,12 +282,50 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
 .wallet:hover{border-color:var(--ink)}
 .wallet img,.wallet .ph{width:28px;height:28px;border-radius:8px;flex:none;background:var(--line)}
 .wallet .go-arrow{margin-left:auto;color:var(--mut)}
-#wallets .fine{font-size:13px;color:var(--mut);margin:14px 0 0;line-height:1.45}
+#wallets .fine,#nearWallets .fine{font-size:13px;color:var(--mut);margin:14px 0 0;line-height:1.45}
 #wallets .hint{margin:0 0 4px}
 .fund-box{display:inline-flex;gap:8px;align-items:center}
 .fund-box[hidden]{display:none}
 .fund-box input{width:120px;height:42px;font:inherit;padding:0 10px;border:1px solid var(--line2);border-radius:10px;background:var(--field);color:var(--ink)}
 #toast a{color:inherit}
+
+/* chain switch */
+[data-chain][hidden]{display:none!important}
+.chains{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin:0 0 6px}
+.chains .seg{display:inline-flex;flex:0 1 auto}
+.chains .seg button{flex:0 1 auto;padding:9px 14px}
+.chains .seg button small{font-family:var(--mono);font-size:11.5px;font-weight:500;opacity:.75;margin-left:6px}
+.chains p{margin:0;font-size:13.5px;color:var(--mut)}
+@media (max-width:520px){.chains .seg{display:flex;width:100%}.chains .seg button{flex:1}}
+
+/* NEAR */
+.banner.note-b{border-color:var(--amber);box-shadow:0 0 0 3px var(--amberSoft),var(--shadow)}
+.banner.note-b h2{color:var(--amber)}
+.twostep{margin:14px 0 0;border:1px solid var(--acc);border-radius:12px;padding:12px;display:grid;gap:10px;background:var(--accSoft)}
+.twostep[hidden]{display:none}
+.twostep p{margin:0;font-size:14px;line-height:1.5;color:var(--ink)}
+.claimbox{border:1px solid var(--acc);border-radius:12px;padding:14px;display:grid;gap:10px;background:var(--bg2)}
+.claimbox p{margin:0;font-size:14px;line-height:1.5}
+.claimbox p.ok{color:var(--acc)}
+.claimbox .muted{color:var(--sec)}
+.how{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.how .step code{font-family:var(--mono);font-size:12.5px;overflow-wrap:anywhere}
+.payout-note{margin-top:12px;padding:16px 18px}
+.payout-note p{margin:0;font-size:14.5px;line-height:1.55;color:var(--sec)}
+.payout-note p+p{margin-top:8px}
+.payout-note code,.try code{font-family:var(--mono);font-size:12.5px;overflow-wrap:anywhere;color:var(--ink)}
+ol.try{margin:0;padding:0;list-style:none;display:grid;gap:10px;counter-reset:t}
+ol.try li{counter-increment:t;display:grid;grid-template-columns:28px 1fr;gap:4px 12px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+ol.try li::before{content:counter(t);grid-row:span 2;width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-family:var(--mono);font-size:13px;background:var(--accSoft);color:var(--acc)}
+ol.try .do{font-size:14.5px;color:var(--ink)}
+ol.try .see{font-size:14px;color:var(--sec)}
+ol.try .do b,ol.try .see b{font-weight:600}
+ol.try li>*{min-width:0}
+ol.try pre.cmd{grid-column:1/-1}
+pre.cmd{margin:6px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--field);font-family:var(--mono);font-size:12px;line-height:1.5;overflow-x:auto;white-space:pre;color:var(--ink)}
+.links{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:14px;font-size:14px}
+.links a{color:var(--sec)}
+@media (max-width:880px){.how{grid-template-columns:1fr}}
 
 @media (max-width:880px){
   .hero,.composer{grid-template-columns:1fr}
@@ -313,7 +351,7 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
       <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M9 17l5 5 9-12" stroke="var(--acc)" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Proof of Ship <small>by Hey Research Lab</small>
     </a>
-    <div class="who"><button id="switchNet" class="warn" hidden>Switch to Robinhood Chain</button><button id="connect" class="primary">Connect wallet</button>
+    <div class="who" data-chain="robinhood"><button id="switchNet" class="warn" hidden>Switch to Robinhood Chain</button><button id="connect" class="primary">Connect wallet</button>
       <div class="acct-wrap">
         <button id="account" class="acct" hidden aria-haspopup="true" aria-controls="accountMenu"></button>
         <div id="accountMenu" class="acct-menu" hidden role="menu">
@@ -324,7 +362,29 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
           <button id="acctDisconnect" role="menuitem" class="danger">Disconnect</button>
         </div>
       </div></div>
+    <div class="who" data-chain="near" hidden><button id="nConnect" class="primary">Connect NEAR wallet</button>
+      <div class="acct-wrap">
+        <button id="nAccount" class="acct" hidden aria-haspopup="true" aria-controls="nAccountMenu"></button>
+        <div id="nAccountMenu" class="acct-menu" hidden role="menu">
+          <div class="acct-head"><span class="k" id="nAcctWallet">NEAR wallet</span><span class="mono acct-addr" id="nAcctAddr"></span></div>
+          <div class="acct-row"><span class="k">USDC on NEAR</span><span id="nAcctUsdc">—</span></div>
+          <button id="nAcctCopy" role="menuitem">Copy account</button>
+          <a id="nAcctExplorer" role="menuitem" target="_blank" rel="noopener" href="#">View on nearblocks ↗</a>
+          <button id="nAcctDisconnect" role="menuitem" class="danger">Disconnect</button>
+        </div>
+      </div></div>
   </header>
+
+  <div class="chains" id="chainSwitch">
+    <div class="seg" role="group" aria-label="Chain">
+      <button type="button" data-pick="robinhood" aria-pressed="true">Robinhood Chain<small>WIF</small></button>
+      <button type="button" data-pick="near" aria-pressed="false">NEAR<small>USDC</small></button>
+    </div>
+    <p data-chain="robinhood">Bounties in $WIF, released by ShipEscrow on Robinhood Chain.</p>
+    <p data-chain="near" hidden>Bounties in USDC, released by escrow.heyresearch.near on NEAR mainnet.</p>
+  </div>
+
+  <div data-chain="robinhood">
 
   <div id="retiredBanner" class="banner retired" hidden role="alert"><h2>Escrow retired</h2><p>This escrow was retired by its guardian. Backers can take their $WIF back now.</p><p>Connect the wallet you backed with: every bounty you put $WIF into shows <b>Take back</b>. No bounty can be opened, added to or released.</p></div>
   <div id="builderBanner" class="banner" hidden aria-live="polite"></div>
@@ -446,9 +506,164 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
     </div>
     <div class="contract" id="contractFacts"></div>
   </section>
+  </div>
+  <div id="nearView" data-chain="near" hidden>
+  <div id="nRetired" class="banner retired" hidden role="alert"><h2>Escrow retired</h2><p>The NEAR escrow was retired by its guardian. Claims and new bounties are off for good, and every funder can take their USDC back now with <b>Take back</b> on the bounty.</p></div>
+  <div id="nSigning" class="banner note-b" hidden role="status"></div>
+
+  <div class="hero">
+    <div>
+      <span class="eyebrow">USDC · NEAR</span>
+      <h1>Back a builder.<br>Pay them <em>when they ship.</em></h1>
+      <p class="lede">Lock USDC on NEAR behind a team that builds. The escrow releases it only when Hey Research Lab signs that it counted real ships, each with its public source, and it checks that signature on chain. No ships by the deadline, and every funder takes their USDC back.</p>
+    </div>
+    <div class="stats" aria-live="polite">
+      <div class="stat"><div class="k">USDC in the escrow</div><div class="v" id="nsLocked">—</div></div>
+      <div class="stat"><div class="k">Open bounties</div><div class="v" id="nsOpen">—</div></div>
+      <div class="stat"><div class="k">Paid to builders</div><div class="v" id="nsPaid">—</div></div>
+      <div class="stat"><div class="k">Bounties on NEAR</div><div class="v" id="nsCount">—</div></div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step"><div class="n">1</div><h3>Open, then fund</h3><p>Open a bounty for any project on HEY (0.01 NEAR for storage, the rest comes back), then lock USDC in it. Anyone can add more.</p></div>
+    <div class="step"><div class="n">2</div><h3>Ship</h3><p>The builder ships. HEY reads it from its sources and counts it by the rule it uses on every page.</p></div>
+    <div class="step"><div class="n">3</div><h3>Release</h3><p>Anyone submits HEY’s signed count. The escrow checks it with <span class="mono">ecrecover</span> and pays the builder’s NEAR account. Miss the target, and funders take it back.</p></div>
+  </div>
+
+  <section id="near-open">
+    <div class="sh"><h2>Open a bounty on NEAR</h2><p>Two wallet prompts: open, then fund.</p></div>
+    <div class="composer">
+      <form id="nCreate" class="card" novalidate>
+        <div class="group">
+          <div class="legend">Who you're backing</div>
+          <div class="grid2">
+            <div class="f">
+              <label for="nSlug">Project on HEY</label>
+              <div class="input"><input id="nSlug" placeholder="Search a project or type its slug" autocomplete="off" autocapitalize="none" spellcheck="false" required role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="nSlugList" aria-describedby="nSlugHint"><ul id="nSlugList" class="ac" role="listbox" aria-label="Projects on HEY" hidden></ul></div>
+              <div class="hint" id="nSlugHint">The slug in heyresearch.xyz/project/<span class="mono">slug</span></div>
+            </div>
+            <div class="f">
+              <label for="nBuilder">Builder's payout address</label>
+              <div class="input"><input id="nBuilder" class="addr" placeholder="0x…" autocomplete="off" spellcheck="false" required></div>
+              <div class="hint" id="nBuilderHint">The EVM address HEY ties to the project. The builder is paid at its NEAR account, 0x… in lower case.</div>
+            </div>
+          </div>
+          <div class="project" id="nProjectCard" style="margin-top:12px"></div>
+          <div class="tie" id="nTieBox" aria-live="polite"></div>
+        </div>
+        <div class="group">
+          <div class="legend">Terms</div>
+          <div class="grid2">
+            <div class="f">
+              <label for="nMinShips">Ships needed</label>
+              <div class="input"><input id="nMinShips" class="has-unit" type="number" inputmode="numeric" min="1" max="1000" value="3" required><span class="unit">ships</span></div>
+              <div class="hint">Counted by HEY after the bounty opens.</div>
+            </div>
+            <div class="f">
+              <label id="nDaysLabel">Time to ship</label>
+              <div class="seg" role="group" aria-labelledby="nDaysLabel" id="nDaysPresets">
+                <button type="button" data-days="7" aria-pressed="false">7 days</button>
+                <button type="button" data-days="14" aria-pressed="true">14 days</button>
+                <button type="button" data-days="30" aria-pressed="false">30 days</button>
+                <button type="button" data-days="custom" aria-pressed="false">Custom</button>
+              </div>
+              <div class="input" id="nDaysCustom" hidden><input id="nDays" class="has-unit" type="number" inputmode="numeric" min="1" max="365" value="14" required aria-label="Days to ship, 1 to 365"><span class="unit">days</span></div>
+              <div class="hint" id="nDaysHint"></div>
+            </div>
+            <div class="f">
+              <label for="nAmount">USDC to lock</label>
+              <div class="input"><input id="nAmount" class="has-unit" type="number" inputmode="decimal" min="0" step="any" value="100" required><span class="unit">USDC</span></div>
+              <div class="hint" id="nBalHint"></div>
+            </div>
+            <div class="f">
+              <label id="nPayoutLabel">Payout</label>
+              <div class="seg" role="group" aria-labelledby="nPayoutLabel" id="nPayoutSeg">
+                <button type="button" data-payout="near" aria-pressed="true">NEAR account</button>
+                <button type="button" data-payout="intents" aria-pressed="false">NEAR Intents</button>
+              </div>
+              <div class="hint" id="nPayoutHint"></div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <aside class="card preview" aria-live="polite">
+        <div class="t">Bounty preview</div>
+        <div class="amt" id="nAmt">—</div>
+        <dl>
+          <div><dt>Builder receives</dt><dd id="nPay">—</dd></div>
+          <div><dt>Paid to</dt><dd id="nAccountOut">—</dd></div>
+          <div><dt>Payout</dt><dd id="nRoute">—</dd></div>
+          <div><dt>Releases at</dt><dd id="nShips">—</dd></div>
+          <div><dt>Ship by</dt><dd id="nBy">—</dd></div>
+          <div><dt>Refunds open</dt><dd id="nRefund">—</dd></div>
+        </dl>
+        <p class="sentence" id="nSentence">Enter a project and a payout address.</p>
+        <p class="retired-note" id="nRetiredNote" hidden>The escrow is retired: no new bounty can be opened.</p>
+        <button class="go" type="submit" form="nCreate" id="nOpenBtn">Open bounty</button>
+        <div class="twostep" id="nFundStep" hidden><p id="nFundText"></p><button class="go" type="button" id="nFundBtn">Fund</button></div>
+        <p class="fine">No burn on NEAR: the builder gets all of it. Take your USDC back if the target isn't met.</p>
+      </aside>
+    </div>
+  </section>
+
+  <section id="near-bounties-section">
+    <div class="sh"><h2>Bounties on NEAR</h2><p id="nCount"></p></div>
+    <div id="nBounties" class="list"><div class="skel"></div></div>
+  </section>
+
+  <section id="near-how">
+    <div class="sh"><h2>How it works on NEAR</h2><p>One contract, <span class="mono">escrow.heyresearch.near</span>, with no owner and no admin method.</p></div>
+    <div class="how">
+      <div class="step"><div class="n">1</div><h3>Open</h3><p><code>create(builder, slug, min_ships, deadline, payout)</code> with 0.01 NEAR for storage. The window starts now.</p></div>
+      <div class="step"><div class="n">2</div><h3>Fund</h3><p><code>ft_transfer_call</code> on USDC to the escrow with <code>{"action":"fund","id":N}</code>. Anything else is refused and the USDC comes back.</p></div>
+      <div class="step"><div class="n">3</div><h3>Ship</h3><p>HEY counts the ships it first recorded inside the window, at most one of each kind a day.</p></div>
+      <div class="step"><div class="n">4</div><h3>Claim</h3><p>Anyone calls <code>claim(id, attestation, signature)</code>. The escrow rebuilds the EIP-712 digest with <code>keccak256</code>, recovers HEY’s key with <code>ecrecover</code>, then pays.</p></div>
+      <div class="step"><div class="n">5</div><h3>Or refund</h3><p>Not claimed by the deadline plus 3 days? Each funder calls <code>refund(id)</code> and gets back exactly what they put in.</p></div>
+    </div>
+    <div class="card payout-note">
+      <p><b>Where the money goes.</b> HEY’s signature names the builder by an EVM address. The builder is paid at the NEAR eth-implicit account of that address: <code>0x</code> and its 40 hex characters in lower case, controlled by the same Ethereum wallet. The escrow registers that account with USDC if needed, so it does not have to exist yet.</p>
+      <p><b>With NEAR Intents</b>, the USDC is deposited into <code>intents.near</code> under that same <code>0x…</code> account instead, for the builder to withdraw or swap to another chain with the same wallet.</p>
+      <p><b>Anyone can claim.</b> The recipient is fixed inside HEY’s signature, so whoever submits the claim, a funder, the builder or an agent, cannot send it anywhere else. HEY signs a count, not a verdict: it says how many ships HEY counted, never that a project is good or worth funding.</p>
+    </div>
+  </section>
+
+  <section id="near-try">
+    <div class="sh"><h2>Try it: do X, see Y</h2><p>No wallet needed until step 5.</p></div>
+    <ol class="try">
+      <li><span class="do"><b>Do:</b> press <b>NEAR</b> at the top of this page.</span><span class="see"><b>See:</b> the escrow’s own figures, read live from <span class="mono">escrow.heyresearch.near</span> over public NEAR RPC, and its bounties with their state from <span class="mono">get_bounties</span>.</span></li>
+      <li><span class="do"><b>Do:</b> type <span class="mono">predict</span> in <b>Project on HEY</b> and pick predict FWA.</span><span class="see"><b>See:</b> the payout address fills in from HEY’s tie route, with the NEAR account it pays, <span class="mono">0x…</span> in lower case. When HEY’s signature for the NEAR escrow checks out, the hint turns green; if HEY is not signing for NEAR yet, the page says so and keeps Open off.</span></li>
+      <li><span class="do"><b>Do:</b> switch <b>Payout</b> to NEAR Intents.</span><span class="see"><b>See:</b> the preview says the USDC goes into NEAR Intents for the same <span class="mono">0x…</span> account.</span></li>
+      <li><span class="do"><b>Do:</b> ask the escrow and HEY directly, from a terminal.</span><span class="see"><b>See:</b> the fixed attester, USDC, chain id 397 and domain separator; then the addresses HEY would sign for.</span>
+<pre class="cmd">curl -s https://free.rpc.fastnear.com -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"escrow.heyresearch.near","method_name":"get_config","args_base64":"e30="}}'
+curl -s 'https://heyresearch.xyz/api/v1/proof-of-ship/tie?slug=predict-fwa'</pre></li>
+      <li><span class="do"><b>Do:</b> press <b>Connect NEAR wallet</b>, choose Meteor, then <b>Open bounty</b>.</span><span class="see"><b>See:</b> a wallet prompt for <span class="mono">create</span> with 0.01 NEAR attached. Once it lands, the preview shows <b>Fund #N with … USDC</b>: press it and approve <span class="mono">ft_transfer_call</span> on USDC. The bounty appears under Bounties on NEAR with the USDC locked.</span></li>
+      <li><span class="do"><b>Do:</b> on a bounty whose target is met, press <b>Release to builder</b>.</span><span class="see"><b>See:</b> “HEY counts N ships” with each ship’s evidence link, and the escrow’s own <span class="mono">recover_signer</span> answering <span class="mono">is_attester: true</span>. Press <b>Submit the claim</b>: the USDC reaches the builder’s <span class="mono">0x…</span> account, and the card reads Paid out.</span></li>
+      <li><span class="do"><b>Do:</b> after the deadline plus 3 days, on a bounty that was not claimed, connect the wallet you funded with.</span><span class="see"><b>See:</b> <b>Take back</b> with exactly what you locked. One press calls <span class="mono">refund(id)</span>.</span></li>
+    </ol>
+    <div class="links">
+      <a href="https://nearblocks.io/address/escrow.heyresearch.near" target="_blank" rel="noopener">The escrow on nearblocks ↗</a>
+      <a href="https://github.com/hey-research-lab/proof-of-ship-near" target="_blank" rel="noopener">The NEAR contract’s source ↗</a>
+      <a href="https://heyresearch.xyz/api/v1/proof-of-ship/tie?slug=predict-fwa" target="_blank" rel="noopener">HEY’s tie route ↗</a>
+      <a href="https://heyresearch.xyz/api/v1/proof-of-ship/attestation?slug=predict-fwa&amp;builder=0x420944b441715E34Dd672AE0Eb4526A7AD7d1EEF&amp;since=1793500000&amp;escrow=near:escrow.heyresearch.near" target="_blank" rel="noopener">HEY’s attestation route for NEAR ↗</a>
+    </div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>What you're trusting on NEAR</h2></div>
+    <div class="trust">
+      <div class="card"><h3>No owner, no admin key</h3><p>The escrow account keeps no full-access key, so nobody, HEY included, can redeploy its code. USDC moves only to the builder the bounty names, or back to the funder who put it in.</p></div>
+      <div class="card"><h3>HEY’s key, checked on chain</h3><p>The attester is fixed at init. A signature counts only under this escrow’s own domain (chain 397, a salt of its account id), so a Robinhood Chain or testnet signature never verifies here.</p></div>
+      <div class="card"><h3>A guardian that can only stop</h3><p><span class="mono">heyresearch.near</span> can retire the escrow: claims stop for good and every funder can refund at once. It can move no USDC.</p></div>
+    </div>
+    <div class="contract" id="nContractFacts"></div>
+  </section>
+  </div>
 
   <footer>
-    <span>Built for the World is Flat hackathon by <a href="https://heyresearch.xyz">Hey Research Lab</a> · <a href="https://github.com/hey-research-lab/proof-of-ship">Source</a></span>
+    <span>Built for the World is Flat hackathon and the NEAR HACKATHON by <a href="https://heyresearch.xyz">Hey Research Lab</a> · <a href="https://github.com/hey-research-lab/proof-of-ship">Page and Robinhood Chain escrow</a> · <a href="https://github.com/hey-research-lab/proof-of-ship-near">NEAR escrow</a></span>
     <span>Not affiliated with Robinhood. Not financial advice.</span>
   </footer>
 </div>
@@ -458,6 +673,12 @@ dialog#wallets::backdrop{background:rgba(0,0,0,.45)}
   <div id="walletList" class="wallet-list"></div>
   <p class="fine">Robinhood Chain (4663) is added to your wallet if it isn't there yet. Reading bounties needs no wallet.</p>
 </dialog>
+<dialog id="nearWallets" class="wallets" aria-labelledby="nearWalletsTitle">
+  <div class="dlg-head"><h2 id="nearWalletsTitle">Connect a NEAR wallet</h2><button id="nearWalletsClose" aria-label="Close">✕</button></div>
+  <div id="nearWalletList" class="wallet-list"></div>
+  <p class="fine">NEAR mainnet. The wallet asks you to approve each transaction: opening a bounty, funding it, claiming or taking back. Reading bounties needs no wallet.</p>
+</dialog>
 <script type="module" src="./app.js?v=13"></script>
+<script type="module" src="./near.js?v=1"></script>
 </body>
 </html>

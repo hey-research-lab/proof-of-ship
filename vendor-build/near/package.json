@@ -1,0 +1,13 @@
+{
+  "name": "proof-of-ship-vendor-near",
+  "private": true,
+  "description": "Builds app/vendor/near.js: NEAR Wallet Selector with the Meteor and MyNearWallet modules, bundled once with esbuild. See app/vendor/README.md.",
+  "devDependencies": {
+    "@near-wallet-selector/core": "10.1.4",
+    "@near-wallet-selector/meteor-wallet": "10.1.4",
+    "@near-wallet-selector/my-near-wallet": "10.1.4",
+    "buffer": "6.0.3",
+    "esbuild": "0.25.12",
+    "util": "0.12.5"
+  }
+}
