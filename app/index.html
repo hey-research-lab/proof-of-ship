@@ -565,8 +565,31 @@ footer .by span{min-width:0}
   .bounty .top{flex-direction:column}
   .bounty .tags{justify-content:flex-start}
 }
+/* phones: one line in the header, 40 px targets, tidy card actions (2026-11-05) */
+@media (max-width:520px){
+  header{gap:8px}
+  .brand{gap:10px}
+  .brand .name b{white-space:nowrap;font-size:15px}
+  .tools{gap:6px;flex:none}
+  #connect,#nConnect{white-space:nowrap;padding:11px 13px;font-size:14px}
+  button.link-btn,a.link-btn{min-height:40px;padding:10px 12px}
+  .seg button{min-height:40px}
+  .bounty .actions>button,.bounty .actions>a{font-size:14px;font-weight:600;min-height:42px}
+  a.share{min-height:44px}
+  .bounty .actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .bounty .actions>button,.bounty .actions>a{width:100%;justify-content:center;text-align:center}
+  .bounty .actions>.go:first-child{grid-column:1/-1}
+  .bounty .actions .mono{grid-column:1/-1;margin-left:0;text-align:left}
+  .bounty .actions .linkbox,.bounty .actions .fund-box{grid-column:1/-1}
+  .bounty .actions a.link-btn{display:inline-flex;align-items:center;border:1px solid var(--line2);border-radius:10px;text-decoration:none}
+  .verify label .muted{font-size:13.5px;line-height:1.5}
+  .verify label .mono{font-size:12px;overflow-wrap:anywhere}
+  .verify .btns button{min-height:42px}
+  .feed a{display:inline-block;padding:6px 0}
+}
 @media (max-width:400px){
   header .acct .muted{display:none}
+  .ctas .btn{flex:1 1 100%;justify-content:center;text-align:center}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style>
