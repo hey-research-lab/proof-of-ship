@@ -738,8 +738,8 @@ seedNear();
   check(rh.logReads.length > 0 && rh.logReads.every((f) => Number(f.fromBlock) >= RH_FROM && f.address?.toLowerCase() === RH_ESCROW.toLowerCase()), 'Robinhood Chain events come from eth_getLogs on the escrow, from its deploy block');
 
   // The HEY logo, header and footer.
-  check((await page.getAttribute('header a.hey', 'href')) === 'https://heyresearch.xyz' && (await page.getAttribute('header a.hey svg', 'aria-label')) === 'Hey Research Lab' && await page.isVisible('header a.hey svg'), 'the HEY mark in the header, labelled Hey Research Lab, links to heyresearch.xyz');
-  check((await page.getAttribute('footer a.hey', 'href')) === 'https://heyresearch.xyz' && (await page.getAttribute('footer a.hey svg', 'aria-label')) === 'Hey Research Lab', 'and in the footer');
+  check((await page.getAttribute('header a.hey', 'href')) === 'https://heyresearch.xyz' && (await page.getAttribute('header a.hey svg', 'aria-label')) === 'HEY Research Lab' && await page.isVisible('header a.hey svg'), 'the HEY mark in the header, labelled HEY Research Lab, links to heyresearch.xyz');
+  check((await page.getAttribute('footer a.hey', 'href')) === 'https://heyresearch.xyz' && (await page.getAttribute('footer a.hey svg', 'aria-label')) === 'HEY Research Lab', 'and in the footer');
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: path.join(SHOTS, 'overview-desktop-light.png'), fullPage: false });
   await page.locator('#bounties-section').screenshot({ path: path.join(SHOTS, 'list-desktop-light.png') });

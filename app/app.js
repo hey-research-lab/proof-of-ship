@@ -1191,10 +1191,10 @@ function shareText({ id, b, name, open }) {
   const ships = `${need} ship${need === 1 ? '' : 's'}`;
   if (b.paid) {
     const paid = b.total - (b.total * BigInt(b.burnBps)) / 10_000n;
-    return `${name} shipped and claimed ${fmt(paid)} $${T.symbol} from a Proof of Ship bounty, released when Hey Research Lab counted ${ships}. ${bountyLink(id)}`;
+    return `${name} shipped and claimed ${fmt(paid)} $${T.symbol} from a Proof of Ship bounty, released when HEY Research Lab counted ${ships}. ${bountyLink(id)}`;
   }
   if (!open) return null;
-  return `${fmt(b.total)} $${T.symbol} for ${name}, released only when Hey Research Lab counts ${ships} by ${dayMonth(b.deadline)}. If they don't ship, the backers take it back. ${bountyLink(id)}`;
+  return `${fmt(b.total)} $${T.symbol} for ${name}, released only when HEY Research Lab counts ${ships} by ${dayMonth(b.deadline)}. If they don't ship, the backers take it back. ${bountyLink(id)}`;
 }
 
 /** The project's official X handle, only when HEY reads the account as active and holds no hold on its link. */
@@ -1209,11 +1209,11 @@ function tellText({ id, b, name, handle, have }) {
   const who = handle ? `@${handle}` : `${name},`;
   const amount = `${fmt(b.total)} $${T.symbol}`;
   if (have !== null && have >= need) {
-    return `${who} there's ${amount} waiting for you on Proof of Ship: Hey Research Lab counts ${have} of your ships, enough to release it now. Anyone can press Release and it goes to your payout wallet. ${bountyLink(id)}`;
+    return `${who} there's ${amount} waiting for you on Proof of Ship: HEY Research Lab counts ${have} of your ships, enough to release it now. Anyone can press Release and it goes to your payout wallet. ${bountyLink(id)}`;
   }
   const left = have ? need - have : need;
   const ships = have ? `${left} more` : `${left} ship${left === 1 ? '' : 's'}`;
-  return `${who} there's ${amount} waiting for you on Proof of Ship: Hey Research Lab counts your ships, and ${ships} by ${dayMonth(b.deadline)} releases it. Nothing to apply for, just keep shipping. ${bountyLink(id)}`;
+  return `${who} there's ${amount} waiting for you on Proof of Ship: HEY Research Lab counts your ships, and ${ships} by ${dayMonth(b.deadline)} releases it. Nothing to apply for, just keep shipping. ${bountyLink(id)}`;
 }
 
 async function act(kind, id) {

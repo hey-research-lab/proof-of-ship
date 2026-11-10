@@ -31,7 +31,7 @@ h1 em{font-style:normal;color:#c2fb03;display:block}
 .row p{margin-left:auto;font-family:M,monospace;font-size:17px;color:#94a0ad;text-align:right;line-height:1.45}
 .glow{position:absolute;right:-160px;top:-200px;width:620px;height:620px;border-radius:50%;background:radial-gradient(closest-side,rgba(194,251,3,.10),transparent)}
 </style><div class="glow"></div>
-<div class="top"><svg viewBox="24 2 90 120">${MARK}</svg><b>Proof of Ship</b><span>by Hey Research Lab</span></div>
+<div class="top"><svg viewBox="24 2 90 120">${MARK}</svg><b>Proof of Ship</b><span>by HEY Research Lab</span></div>
 <h1>Pay builders for shipping. <em>On any chain.</em></h1>
 <div class="row"><span class="cb rh"><i></i>Robinhood Chain<small>WIF</small></span><span class="cb nr"><i></i>NEAR<small>USDC</small></span><p>One HEY signature per claim,<br>checked by the escrow on its chain.</p></div>`;
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pos-og-'));

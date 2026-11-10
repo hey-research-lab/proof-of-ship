@@ -16,11 +16,11 @@
   <a href="https://hey-research-lab.github.io/proof-of-ship/?chain=near"><b>Open it on NEAR</b></a> ·
   <a href="https://hey-research-lab.github.io/proof-of-ship/demo.html"><b>Watch the demo</b></a> ·
   <a href="https://worldisflat.fun/build/projects/proof-of-ship"><b>Follow on World is Flat</b></a> ·
-  <a href="https://heyresearch.xyz"><b>Hey Research Lab</b></a>
+  <a href="https://heyresearch.xyz"><b>HEY Research Lab</b></a>
 </p>
 
 **Proof of Ship** is an escrow on Robinhood Chain that pays builders in $WIF for shipping, not for promising. Anyone
-locks $WIF behind a team, and it is released only when [Hey Research Lab](https://heyresearch.xyz) counts real ships
+locks $WIF behind a team, and it is released only when [HEY Research Lab](https://heyresearch.xyz) counts real ships
 for that team, each with its public source; if the target is not met by the deadline, every backer takes their $WIF back.
 
 The same page also runs **Proof of Ship on NEAR**: USDC bounties in the escrow
@@ -104,7 +104,7 @@ payout, the USDC sits in `intents.near` under that same `0x…` account, for the
 | :-- | :-- |
 | **Escrow** | [`escrow.heyresearch.near`](https://nearblocks.io/address/escrow.heyresearch.near) · [source](https://github.com/hey-research-lab/proof-of-ship-near). It still holds one full-access key until the operator deletes it; the page reads the account's keys live and says how many |
 | **Token** | USDC on NEAR, [`17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1`](https://nearblocks.io/address/17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1) (6 decimals) |
-| **Attester** (Hey Research Lab) | `0x2b309b352Ff49d04912Ca34984B27a5481325760`, the same key as on Robinhood Chain, under a NEAR-only domain |
+| **Attester** (HEY Research Lab) | `0x2b309b352Ff49d04912Ca34984B27a5481325760`, the same key as on Robinhood Chain, under a NEAR-only domain |
 | **Guardian** (can only retire) | [`heyresearch.near`](https://nearblocks.io/address/heyresearch.near) |
 | **HEY routes** | [`/api/v1/proof-of-ship/tie?slug=`](https://heyresearch.xyz/api/v1/proof-of-ship/tie?slug=predict-fwa) and `/api/v1/proof-of-ship/attestation?slug=&builder=&since=&until=&escrow=near:escrow.heyresearch.near` |
 
@@ -159,7 +159,7 @@ the amount, HEY's signed count against the target, and the deadline.
 | | Robinhood Chain (4663) |
 | :-- | :-- |
 | **ShipEscrow** | [`0x3Da17a89F1d29aB96419269514C798a8dd6125f2`](https://robinhoodchain.blockscout.com/address/0x3da17a89f1d29ab96419269514c798a8dd6125f2) · source on [Sourcify](https://repo.sourcify.dev/4663/0x3Da17a89F1d29aB96419269514C798a8dd6125f2) (exact match) |
-| **Attester** (Hey Research Lab) | [`0x2b309b352Ff49d04912Ca34984B27a5481325760`](https://robinhoodchain.blockscout.com/address/0x2b309b352ff49d04912ca34984b27a5481325760) |
+| **Attester** (HEY Research Lab) | [`0x2b309b352Ff49d04912Ca34984B27a5481325760`](https://robinhoodchain.blockscout.com/address/0x2b309b352ff49d04912ca34984b27a5481325760) |
 | **Guardian** (can only retire) | [`0x2f7D93Eed05439bFf41e602f37A8792Af731b736`](https://robinhoodchain.blockscout.com/address/0x2f7d93eed05439bff41e602f37a8792af731b736) |
 | **$WIF** | [`0x5173b8eA6923c2d40267890D45C46a3480954773`](https://robinhoodchain.blockscout.com/token/0x5173b8ea6923c2d40267890d45c46a3480954773) |
 | **Deployed** | [`0xef19…d071`](https://robinhoodchain.blockscout.com/tx/0xef19bc5c4a756a66365f797a27c4223ab65c69c2d55ccb675d4dd1acd22ed071), block 96,136,035 |
@@ -299,5 +299,5 @@ compromised, the guardian retires the escrow and refunds open at once.
 </details>
 
 <p align="center">
-  <sub>By <a href="https://heyresearch.xyz">Hey Research Lab</a> · <a href="SECURITY.md">Security</a> · <a href="LICENSE">MIT</a> · Not affiliated with or endorsed by Robinhood · Not financial advice</sub>
+  <sub>By <a href="https://heyresearch.xyz">HEY Research Lab</a> · <a href="SECURITY.md">Security</a> · <a href="LICENSE">MIT</a> · Not affiliated with or endorsed by Robinhood · Not financial advice</sub>
 </p>

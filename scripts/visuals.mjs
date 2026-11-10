@@ -1,5 +1,5 @@
 // The README's pictures: the hero, the live stats card and the flow, each an SVG in a light and a dark version.
-// The palette is Hey Research Lab's (the same THEMES as github.com/hey-research-lab's profile). Every picture is
+// The palette is HEY Research Lab's (the same THEMES as github.com/hey-research-lab's profile). Every picture is
 // complete at rest: an animation only adds motion from a `from` keyframe, so GitHub's mobile app and thumbnails,
 // which may not animate, still show every figure. Readers who ask for reduced motion get no motion at all.
 
