@@ -55,7 +55,7 @@ Light and dark follow the system, or the reader's choice from the header (rememb
 
 | Bounty | Project | Amount | Target | Deadline | Status | Opened |
 | :-- | :-- | --: | :-- | :-- | :-- | :-- |
-| [#1](https://hey-research-lab.github.io/proof-of-ship/#bounty-1) | [fly-ai](https://heyresearch.xyz/project/fly-ai) | 5,000 WIF | 3 ships | 10 Nov 2026, 19:38 UTC | **Open** | [`0x9fa0…8c6d`](https://robinhoodchain.blockscout.com/tx/0x9fa062076690c34b94c11bae8c7c57cb73cd89e1677937029913d7175e9d8c6d) |
+| [#1](https://hey-research-lab.github.io/proof-of-ship/#bounty-1) | [fly-ai](https://heyresearch.xyz/project/fly-ai) | 5,000 WIF | 3 ships | 10 Nov 2026, 19:38 UTC | **Paid** at 4 ships: 4,900 WIF to the builder, 100 burned · [`0x2553…cdbb`](https://robinhoodchain.blockscout.com/tx/0x25539a5df80007686f39fee5a365299647c884e4978172ad5730e162eaf2cdbb) | [`0x9fa0…8c6d`](https://robinhoodchain.blockscout.com/tx/0x9fa062076690c34b94c11bae8c7c57cb73cd89e1677937029913d7175e9d8c6d) |
 | [#0](https://hey-research-lab.github.io/proof-of-ship/#bounty-0) | [predict-fwa](https://heyresearch.xyz/project/predict-fwa) | 5,000 WIF | 3 ships | 6 Nov 2026, 18:25 UTC | **Paid** at 3 ships: 4,900 WIF to the builder, 100 burned · [`0xd196…ab57`](https://robinhoodchain.blockscout.com/tx/0xd19654c02474c71beb664e8b35aefc0e57eefaa8330707037245b3e95285ab57) | [`0x3e48…5603`](https://robinhoodchain.blockscout.com/tx/0x3e48e2d8ff9cb942bb580a8434f2ab4c4bc89e48e103f4c9dbb49e8ff6535603) |
 <!-- bounties:end -->
 

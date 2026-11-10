@@ -1,24 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="214" viewBox="0 0 1200 214" role="img" aria-label="Proof of Ship, live from Robinhood Chain: 5,000 WIF locked in the escrow now; 4,900 WIF paid to builders who shipped; 100 WIF burned at release, as backers chose; 2 bounties opened; 1 bounty paid out">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="214" viewBox="0 0 1200 214" role="img" aria-label="Proof of Ship, live from Robinhood Chain: 0 WIF locked in the escrow now; 9,800 WIF paid to builders who shipped; 200 WIF burned at release, as backers chose; 2 bounties opened; 2 bounties paid out">
 <style>.v{animation:in .6s ease-out both}@keyframes in{from{opacity:0;transform:translateY(6px)}}@media (prefers-reduced-motion: reduce){*{animation:none!important}}</style>
 <rect width="1200" height="214" rx="14" fill="#F5F6F8"/>
 <text x="24" y="42" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13" letter-spacing="2" fill="#4F7A00">LIVE FROM ROBINHOOD CHAIN</text>
 <text x="1176" y="42" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#535B66">Read from the escrow's own events, every day</text>
 <g class="v" style="animation-delay:0.00s"><rect x="24.0" y="64" width="219.2" height="112" rx="10" fill="#FFFFFF" stroke="#DDE1E7"/>
-<text x="42.0" y="112" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="-1" fill="#0B0E11">5,000<tspan font-size="15" font-weight="500" letter-spacing="0" fill="#535B66" dx="6">WIF</tspan></text>
+<text x="42.0" y="112" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="-1" fill="#0B0E11">0<tspan font-size="15" font-weight="500" letter-spacing="0" fill="#535B66" dx="6">WIF</tspan></text>
 <text x="42.0" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#535B66">locked in the escrow now</text></g>
 <g class="v" style="animation-delay:0.08s"><rect x="257.2" y="64" width="219.2" height="112" rx="10" fill="#FFFFFF" stroke="#DDE1E7"/>
-<text x="275.2" y="112" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="-1" fill="#4F7A00">4,900<tspan font-size="15" font-weight="500" letter-spacing="0" fill="#535B66" dx="6">WIF</tspan></text>
+<text x="275.2" y="112" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="-1" fill="#4F7A00">9,800<tspan font-size="15" font-weight="500" letter-spacing="0" fill="#535B66" dx="6">WIF</tspan></text>
 <text x="275.2" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#535B66">paid to builders who</text>
 <text x="275.2" y="157" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#535B66">shipped</text></g>
 <g class="v" style="animation-delay:0.16s"><rect x="490.4" y="64" width="219.2" height="112" rx="10" fill="#FFFFFF" stroke="#DDE1E7"/>
-<text x="508.4" y="112" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="-1" fill="#0B0E11">100<tspan font-size="15" font-weight="500" letter-spacing="0" fill="#535B66" dx="6">WIF</tspan></text>
+<text x="508.4" y="112" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="-1" fill="#0B0E11">200<tspan font-size="15" font-weight="500" letter-spacing="0" fill="#535B66" dx="6">WIF</tspan></text>
 <text x="508.4" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#535B66">burned at release, as</text>
 <text x="508.4" y="157" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#535B66">backers chose</text></g>
 <g class="v" style="animation-delay:0.24s"><rect x="723.6" y="64" width="219.2" height="112" rx="10" fill="#FFFFFF" stroke="#DDE1E7"/>
 <text x="741.6" y="112" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="-1" fill="#0B0E11">2</text>
 <text x="741.6" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#535B66">bounties opened</text></g>
 <g class="v" style="animation-delay:0.32s"><rect x="956.8" y="64" width="219.2" height="112" rx="10" fill="#FFFFFF" stroke="#DDE1E7"/>
-<text x="974.8" y="112" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="-1" fill="#4F7A00">1</text>
-<text x="974.8" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#535B66">bounty paid out</text></g>
+<text x="974.8" y="112" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="-1" fill="#4F7A00">2</text>
+<text x="974.8" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#535B66">bounties paid out</text></g>
 <text x="24" y="200" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12" fill="#535B66">ShipEscrow 0x3Da17a89F1d29aB96419269514C798a8dd6125f2 · chain 4663</text>
 </svg>
